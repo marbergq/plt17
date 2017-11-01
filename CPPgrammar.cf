@@ -1,0 +1,41 @@
+PDefs. Program ::= [Def] ;
+terminator Def "" ;
+
+DFunction. Def ::= Type Id "(" [Arg] ")" "{" [Stmt] "}" ;
+separator  Arg "," ;
+terminator Stmt "" ;
+
+TInt       Type ::= Integer ; 
+TBool      Type ::= Boolen ; 
+TChar      Type ::= Char ;
+TDouble    Type ::= Double ;
+TVoid      Type ::= Void ;
+TId        Type ::= Id ;
+TQualConst Type ::= [Id] ;
+separator nonempty Id "::" ;
+token Id ( Char (Char | Int | '_' )*) ;
+
+ADef. Arg ::= Type Id ; 
+
+SExp. Stmt ::= Exp ";" ;
+SRet. Stmt ::= "return" Exp ";" ;
+
+LString. Literal ::= """ [Char] """ ;
+LInt.    Literal ::= Integer;
+
+comment "#"
+comment "//" ;
+comment "/*" "*/"
+
+EInt.       Exp16 ::= Integer ; 
+EBool       Exp16 ::= Boolen ; 
+EChar       Exp16 ::= Char ;
+EDouble     Exp16 ::= Double ;
+EVoid       Exp16 ::= Void ;
+EId         Exp16 ::= Id ;
+Estring.    Exp16 ::= String  or """ Exp16 """
+EQualConst  Exp16 ::= [Id] ; 
+ELShift     Exp10 ::= Exp10 "<<" Exp11
+ERShift     Exp10 ::= Exp10 ">>" Exp11
+separator nonempty Id "::" ;
+coercions Exp 16 ;
