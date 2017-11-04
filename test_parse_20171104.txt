@@ -1,0 +1,15 @@
+../plt17/1-hello.cc
+
+Parse Successful!
+
+[Abstract Syntax]
+
+PDefs [DFun Type_int (Id "main") [] [SExp (ELShift (ELShift (EQConst (DQConst [DQConstElem (Id "std"),DQConstElem (Id "cout")])) (EString "Hello, world!")) (EQConst (DQConst [DQConstElem (Id "std"),DQConstElem (Id "endl")]))),SReturn (EInt 0)]]
+
+[Linearized tree]
+
+int main () {
+  std :: cout << "Hello, world!" << std :: endl ;
+  return 0 ;
+  }
+
