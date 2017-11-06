@@ -7,6 +7,6 @@ Johan Hyrefeldt
 Miki Swahn 
 
 CID:
-mikis
+mikis, hyrefelt
 
 Append 'at'student.chalmers.se
