@@ -18,15 +18,20 @@ comment "#" ;
 comment "//" ;
 comment "/*" "*/" ;
 
+QConstDef.  QConst ::= [QCElem] ; 
+Qconstelem. QCElem ::= Id;
+separator nonempty QCElem "::" ;
+
 EInt.       Exp16 ::= Integer ; 
-EBool.      Exp16 ::= Boolen ; 
+--EBool.      Exp16 ::= Boolean ; 
 EChar.      Exp16 ::= Char ;
 EDouble.    Exp16 ::= Double ;
-EVoid.      Exp16 ::= Void ;
+--EVoid.      Exp16 ::= Void ;
 EId.        Exp16 ::= Id ;
 Estring.    Exp16 ::= String ;
-EQualConst. Exp16 ::= [Id] ; 
+EQualConst. Exp16 ::= QConst ; 
 ELShift.    Exp10 ::= Exp10 "<<" Exp11 ;
 ERShift.    Exp10 ::= Exp10 ">>" Exp11 ;
-separator nonempty Id "::" ;
 coercions Exp 16 ;
+
+
