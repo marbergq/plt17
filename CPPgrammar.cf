@@ -1,0 +1,32 @@
+PDefs. Program ::= [Def] ;
+terminator Def "" ;
+
+DFunction. Def ::= Type Id "(" [Arg] ")" "{" [Stmt] "}" ;
+separator  Arg "," ;
+terminator Stmt "" ;
+
+rules Type ::=  "int" | "bool" | "char" | "double" | "void" | "string" | QConst ;
+
+token Id (letter (letter | digit | '_')*) ;
+
+ADef. Arg ::= Type Id ; 
+
+SExp. Stmt ::= Exp ";" ;
+SRet. Stmt ::= "return" Exp ";" ;
+
+comment "#" ;
+comment "//" ;
+comment "/*" "*/" ;
+
+EInt.       Exp16 ::= Integer ; 
+EBool.      Exp16 ::= Boolen ; 
+EChar.      Exp16 ::= Char ;
+EDouble.    Exp16 ::= Double ;
+EVoid.      Exp16 ::= Void ;
+EId.        Exp16 ::= Id ;
+Estring.    Exp16 ::= String ;
+EQualConst. Exp16 ::= [Id] ; 
+ELShift.    Exp10 ::= Exp10 "<<" Exp11 ;
+ERShift.    Exp10 ::= Exp10 ">>" Exp11 ;
+separator nonempty Id "::" ;
+coercions Exp 16 ;
