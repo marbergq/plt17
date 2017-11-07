@@ -14,13 +14,13 @@ ADef. Arg ::= Type Id ;
 
 SExp.     Stmt ::= Exp ";" ;
 SRet.     Stmt ::= "return" Exp ";" ;
-SVarDecl. Stmt ::= Type ";" [Var] ;
-SVarDEcc. Stmt ::= const Type ";" ;
-separator Var "," ;
+SVarDecl. Stmt ::= Type [Var] ";" ;
+SVarDEcc. Stmt ::= const Type [Var] ";" ;
+separator nonempty Var "," ;
 --possible Type "&"
 
-Vreserve Var ::= Id ;
-Vinit    Var ::= Id "=" Exp ;
+Vreserve. Var ::= Id ;
+Vinit.    Var ::= Id "=" Exp ;
 
 comment "#" ;
 comment "//" ;
