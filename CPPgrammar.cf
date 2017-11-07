@@ -1,18 +1,26 @@
 PDefs. Program ::= [Def] ;
 terminator Def "" ;
 
+DQConst. Def ::= "using" QConst ;
 DFunction. Def ::= Type Id "(" [Arg] ")" "{" [Stmt] "}" ;
 separator  Arg "," ;
 terminator Stmt "" ;
 
-rules Type ::=  "int" | "bool" | "char" | "double" | "void" | "string" | QConst ;
+rules Type ::=  "int" | "bool" | "char" | "double" | "void" | QConst ;
 
 token Id (letter (letter | digit | '_')*) ;
 
 ADef. Arg ::= Type Id ; 
 
-SExp. Stmt ::= Exp ";" ;
-SRet. Stmt ::= "return" Exp ";" ;
+SExp.     Stmt ::= Exp ";" ;
+SRet.     Stmt ::= "return" Exp ";" ;
+SVarDecl. Stmt ::= Type ";" [Var] ;
+SVarDEcc. Stmt ::= const Type ";" ;
+separator Var "," ;
+
+Vreserve Var ::= Id ;
+Vinit    Var ::= Id "=" Exp ;
+
 
 comment "#" ;
 comment "//" ;
