@@ -17,10 +17,10 @@ SRet.     Stmt ::= "return" Exp ";" ;
 SVarDecl. Stmt ::= Type ";" [Var] ;
 SVarDEcc. Stmt ::= const Type ";" ;
 separator Var "," ;
+--possible Type "&"
 
 Vreserve Var ::= Id ;
 Vinit    Var ::= Id "=" Exp ;
-
 
 comment "#" ;
 comment "//" ;
