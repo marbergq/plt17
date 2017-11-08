@@ -4,7 +4,6 @@ terminator Def "" ;
 DQConst. Def ::= "using" QConst ;
 DFunction. Def ::= Type Id "(" [Arg] ")" "{" [Stmt] "}" ;
 separator  Arg "," ;
-terminator Stmt "" ;
 
 rules Type ::=  "int" | "bool" | "char" | "double" | "void" | QConst ;
 
@@ -14,10 +13,16 @@ ADef. Arg ::= Type Id ;
 
 SExp.     Stmt ::= Exp ";" ;
 SRet.     Stmt ::= "return" Exp ";" ;
+SWhile.   Stmt ::= "while" "(" Exp ")" Stmt ";" ;
+SCond.    Stmt ::= "if" "(" Exp ")" Stmt ";" ;
+SCond.    Stmt ::= "if" "(" Exp ")" Stmt ";" else" Stmt ";" ;
+SBlock.   Stmt ::= "{" [Stmt] "}" ;
 SVarDecl. Stmt ::= Type [Var] ";" ;
 SVarDEcc. Stmt ::= const Type [Var] ";" ;
 separator nonempty Var "," ;
 --possible Type "&"
+
+terminator Stmt "" ;
 
 Vreserve. Var ::= Id ;
 Vinit.    Var ::= Id "=" Exp ;
@@ -30,16 +35,45 @@ QConstDef.  QConst ::= [QCElem] ;
 Qconstelem. QCElem ::= Id;
 separator nonempty QCElem "::" ;
 
-EInt.       Exp16 ::= Integer ; 
---EBool.      Exp16 ::= Boolean ; 
+--EId.        Exp16 ::= Id ;
 EChar.      Exp16 ::= Char ;
-EDouble.    Exp16 ::= Double ;
---EVoid.      Exp16 ::= Void ;
-EId.        Exp16 ::= Id ;
 Estring.    Exp16 ::= String ;
+EDouble.    Exp16 ::= Double ; --nonegative
+EInt.       Exp16 ::= Integer ; --nonnegative?
 EQualConst. Exp16 ::= QConst ; 
+EVoid.      Exp16 ::= Void ;
+EBool.      Exp16 ::= Boolean ; 
+Eindex.     Exp15 ::= Exp15 "[" Exp "]" ;
+Efun.       Exp15 ::= Exp16 "(" [Exp] ")" ;
+EStProjDot. Exp14 ::= Exp13 "."  Exp14 ;
+EStProjArr. Exp14 ::= Exp13 "->" Exp14 ;
+EMul.       Exp12 ::= Exp11 "*"  Exp12 ;
+EDiv.       Exp12 ::= Exp11 "/"  Exp12 ;
+ERem.       Exp12 ::= Exp11 "%"  Exp12 ;
+EAdd.       Exp11 ::= Exp10 "+"  Exp11 ;
+ESub.       Exp11 ::= Exp10 "-"  Exp11 ;
 ELShift.    Exp10 ::= Exp10 "<<" Exp11 ;
 ERShift.    Exp10 ::= Exp10 ">>" Exp11 ;
+EEq.        Exp8  ::= Exp7  "==" Exp8 ;
+EInEq.      Exp8  ::= Exp7  "!=" Exp8 ;
+EAss.       Exp2  ::= Exp3  "="  Exp2 ;
+EAssAdd.    Exp2  ::= Exp3  "+=" Exp2 ;
+EAssSub.    Exp2  ::= Exp3  "-=" Exp2 ;
+ECond.      Exp2  ::= Exp2 "?" Stm ":" Stm ;
+separator Exp16 "," ;
+
+--Right associativity for the conditional has the usual meaning: 
+--
+--c1 ? t1 : c2 ? t2 : e2 
+--
+--is parsed as 
+--c1 ? t1 : (c2 ? t2 : e2)
+--and not as
+--(c1 ? t1 : c2) ? t2 : e2.
+--
+--
+--Note also that ? and : act like left and right --parenthesis, thus, parsing
+--c1 ? c2 ? t1 : e1 : e2 
+--succeeds effortlessly, yielding 
+--c1 ? (c2 ? t1 : e1) : e2. 
 coercions Exp 16 ;
-
-
