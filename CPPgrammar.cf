@@ -1,0 +1,87 @@
+PDefs. Program ::= [Def] ;
+terminator Def "" ;
+
+DFunction. Def ::= Type Id "(" [Arg] ")" "{" [Stmt] "}" ;
+DQConst.   Def ::= "using" QConst ;
+DStmt.     Def ::= "typedef" Stmt ;
+separator  Arg "," ;
+
+rules Type ::=  "int" | "bool" | "char" | "double" | "void" | QConst | Type "&" ;
+
+token Id (letter (letter | digit | '_')*) ;
+
+AType.  Arg ::= Type ; 
+AId.    Arg ::= Type Id ; 
+AExp.   Arg ::= Type Id "=" Exp ; 
+AConst. Arg ::= "const" Type Id ; 
+
+SExp.     Stmt ::= Exp ";" ;
+SRet.     Stmt ::= "return" Exp ";" ;
+SVarDecl. Stmt ::= Type [Var] ";" ;
+SVarDecc. Stmt ::= "const" Type [Var] ";" ;
+SWhile.   Stmt ::= "while" "(" Exp ")" Stmt ;
+SDoWhile. Stmt ::= "do" Stmt "while" "(" Exp ")" ;
+SFor.     Stmt ::= "for" "(" Arg ";" Exp ";" Exp ")" Stmt ;
+SIf.      Stmt ::= "if" "(" Exp ")" Stmt ;
+SIfElse.  Stmt ::= "if" "(" Exp ")" Stmt "else" Stmt ;
+SBlock.   Stmt ::= "{" [Stmt] "}" ;
+SFun.     Stmt ::= ";" ;
+STDef.    Stmt ::= "typedef" Type Id ";" ;
+separator nonempty Var "," ;
+
+terminator Stmt "" ;
+
+Vreserve. Var ::= Id ;
+Vinit.    Var ::= Id "=" Exp ;
+
+comment "#" ;
+comment "//" ;
+comment "/*" "*/" ;
+
+QConstDef.  QConst ::= [QCElem] ; 
+Qconstelem. QCElem ::= Id;
+separator nonempty QCElem "::" ;
+
+LChar.      Lit ::= Char ;
+LDouble.    Lit ::= Double ;
+LInt.       Lit ::= Integer ;
+Lstring.    Lit ::= [String] ;
+terminator String "" ;
+
+EId.        Exp16 ::= Id ;
+Elit.       Exp16 ::= Lit ;
+EQualConst. Exp16 ::= QConst ; 
+Eindex.     Exp15 ::= Exp15 "[" Exp "]" ;
+Efun.       Exp15 ::= Exp15 "(" [Exp] ")" ;
+EStProjDot. Exp14 ::= Exp13 "."  Exp14 ;
+EStProjArr. Exp14 ::= Exp13 "->" Exp14 ;
+EIncr.      Exp14 ::= Exp14 "++" ;
+EDecr.      Exp14 ::= Exp14 "--" ;
+EIncrPre.   Exp13 ::= "++" Exp13 ;
+EIncrPre.   Exp13 ::= "--" Exp13 ;
+EDerefer.   Exp13 ::= "*" Exp13 ;
+ENeg.       Exp13 ::= "!" Exp13 ;
+EMul.       Exp12 ::= Exp11 "*"  Exp12 ;
+EDiv.       Exp12 ::= Exp11 "/"  Exp12 ;
+ERem.       Exp12 ::= Exp11 "%"  Exp12 ;
+EAdd.       Exp11 ::= Exp10 "+"  Exp11 ;
+ESub.       Exp11 ::= Exp10 "-"  Exp11 ;
+ELShift.    Exp10 ::= Exp10 "<<" Exp11 ;
+ERShift.    Exp10 ::= Exp10 ">>" Exp11 ;
+ECompLeq.   Exp9  ::= Exp8  "<=" Exp9 ;
+ECompGeq.   Exp9  ::= Exp8  ">=" Exp9 ;
+ECompLess.  Exp9  ::= Exp8  "<" Exp9 ;
+ECompGtr.   Exp9  ::= Exp8  ">" Exp9 ;
+EEq.        Exp8  ::= Exp7  "==" Exp8 ;
+EInEq.      Exp8  ::= Exp7  "!=" Exp8 ;
+ECon.       Exp4  ::= Exp3  "&&" Exp4 ;
+EDis.       Exp3  ::= Exp2  "||" Exp3 ;
+EAss.       Exp2  ::= Exp3  "="  Exp2 ;
+EAssAdd.    Exp2  ::= Exp3  "+=" Exp2 ;
+EAssSub.    Exp2  ::= Exp3  "-=" Exp2 ;
+ECond.      Exp2  ::= Exp3 "?" Exp2 ":" Exp2 ;
+EThrow.     Exp1  ::= "throw" Exp ;
+separator Exp16 "," ;
+separator Exp "," ;
+
+coercions Exp 16 ;
