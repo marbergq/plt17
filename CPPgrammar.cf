@@ -82,5 +82,6 @@ EAssSub.    Exp2  ::= Exp3  "-=" Exp2 ;
 ECond.      Exp2  ::= Exp3 "?" Exp2 ":" Exp2 ;
 EThrow.     Exp1  ::= "throw" Exp ;
 separator Exp16 "," ;
+separator Exp "," ;
 
 coercions Exp 16 ;
