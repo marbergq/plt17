@@ -7,11 +7,11 @@ import System.Environment ( getArgs, getProgName )
 import System.Exit ( exitFailure, exitSuccess )
 import Control.Monad (when)
 
-import LexCPPGrammar
-import ParCPPGrammar
-import SkelCPPGrammar
-import PrintCPPGrammar
-import AbsCPPGrammar
+import LexCPPgrammar
+import ParCPPgrammar
+import SkelCPPgrammar
+import PrintCPPgrammar
+import AbsCPPgrammar
 
 
 

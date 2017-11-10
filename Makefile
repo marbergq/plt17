@@ -1,11 +1,11 @@
 all:
-	happy -gca ParCPPgrammar.y
-	alex -g LexCPPgrammar.x
-	ghc --make TestCPPgrammar.hs -o TestCPPgrammar
+	happy -gca ParCPPGrammar.y
+	alex -g LexCPPGrammar.x
+	ghc --make TestCPPGrammar.hs -o TestCPPGrammar
 
 clean:
 	-rm -f *.log *.aux *.hi *.o *.dvi
 
 distclean: clean
-	-rm -f DocCPPgrammar.* LexCPPgrammar.* ParCPPgrammar.* LayoutCPPgrammar.* SkelCPPgrammar.* PrintCPPgrammar.* TestCPPgrammar.* AbsCPPgrammar.* TestCPPgrammar ErrM.* SharedString.* ComposOp.* CPPgrammar.dtd XMLCPPgrammar.* Makefile*
+	-rm -f DocCPPGrammar.* LexCPPGrammar.* ParCPPGrammar.* LayoutCPPGrammar.* SkelCPPGrammar.* PrintCPPGrammar.* TestCPPGrammar.* AbsCPPGrammar.* TestCPPGrammar ErrM.* SharedString.* ComposOp.* CPPGrammar.dtd XMLCPPGrammar.* Makefile*
 	
