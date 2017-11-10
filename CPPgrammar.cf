@@ -1,26 +1,33 @@
 PDefs. Program ::= [Def] ;
 terminator Def "" ;
 
-DQConst. Def ::= "using" QConst ;
 DFunction. Def ::= Type Id "(" [Arg] ")" "{" [Stmt] "}" ;
+DQConst.   Def ::= "using" QConst ;
+DStmt.     Def ::= "typedef" Stmt ;
 separator  Arg "," ;
 
-rules Type ::=  "int" | "bool" | "char" | "double" | "void" | QConst ;
+rules Type ::=  "int" | "bool" | "char" | "double" | "void" | QConst | Type "&" ;
 
 token Id (letter (letter | digit | '_')*) ;
 
-ADef. Arg ::= Type Id ; 
+AType.  Arg ::= Type ; 
+AId.    Arg ::= Type Id ; 
+AExp.   Arg ::= Type Id "=" Exp ; 
+AConst. Arg ::= "const" Type Id ; 
 
 SExp.     Stmt ::= Exp ";" ;
 SRet.     Stmt ::= "return" Exp ";" ;
-SWhile.   Stmt ::= "while" "(" Exp ")" Stmt ";" ;
-SCond.    Stmt ::= "if" "(" Exp ")" Stmt ";" ;
-SCond.    Stmt ::= "if" "(" Exp ")" Stmt ";" else" Stmt ";" ;
-SBlock.   Stmt ::= "{" [Stmt] "}" ;
 SVarDecl. Stmt ::= Type [Var] ";" ;
-SVarDEcc. Stmt ::= const Type [Var] ";" ;
+SVarDEcc. Stmt ::= "const" Type [Var] ";" ;
+SWhile.   Stmt ::= "while" "(" Exp ")" Stmt ;
+SDoWhile. Stmt ::= "do" Stmt "while" "(" Exp ")" ;
+SFor.     Stmt ::= "for" "(" Arg ";" Exp ";" Exp ")" Stmt ;
+SCond.    Stmt ::= "if" "(" Exp ")" Stmt ;
+SCond.    Stmt ::= "if" "(" Exp ")" Stmt else" Stmt ;
+SBlock.   Stmt ::= "{" [Stmt] "}" ;
+SFun.     Stmt ::= ";" ;
+STDef.    Stmt ::= "typedef" Type Id ";" ;
 separator nonempty Var "," ;
---possible Type "&"
 
 terminator Stmt "" ;
 
@@ -35,18 +42,25 @@ QConstDef.  QConst ::= [QCElem] ;
 Qconstelem. QCElem ::= Id;
 separator nonempty QCElem "::" ;
 
---EId.        Exp16 ::= Id ;
-EChar.      Exp16 ::= Char ;
-Estring.    Exp16 ::= String ;
-EDouble.    Exp16 ::= Double ; --nonegative
-EInt.       Exp16 ::= Integer ; --nonnegative?
+LChar.      Lit ::= Char ;
+LDouble.    Lit ::= Double ;
+LInt.       Lit ::= Integer ;
+Lstring.    Lit ::= [String] ;
+teminator String "" ;
+
+EId.        Exp16 ::= Id ;
+Elit.       Exp16 ::= Lit ;
 EQualConst. Exp16 ::= QConst ; 
-EVoid.      Exp16 ::= Void ;
-EBool.      Exp16 ::= Boolean ; 
 Eindex.     Exp15 ::= Exp15 "[" Exp "]" ;
 Efun.       Exp15 ::= Exp16 "(" [Exp] ")" ;
 EStProjDot. Exp14 ::= Exp13 "."  Exp14 ;
 EStProjArr. Exp14 ::= Exp13 "->" Exp14 ;
+EIncr.      Exp14 ::= Exp14 "++" ;
+EDecr.      Exp14 ::= Exp14 "--" ;
+EIncrPre.   Exp13 ::= "++" Exp13 ;
+EIncrPre.   Exp13 ::= "--" Exp13 ;
+EDerefer.   Exp13 ::= "*" Exp13 ;
+ENeg.       Exp13 ::= "!" Exp13 ;
 EMul.       Exp12 ::= Exp11 "*"  Exp12 ;
 EDiv.       Exp12 ::= Exp11 "/"  Exp12 ;
 ERem.       Exp12 ::= Exp11 "%"  Exp12 ;
@@ -54,26 +68,19 @@ EAdd.       Exp11 ::= Exp10 "+"  Exp11 ;
 ESub.       Exp11 ::= Exp10 "-"  Exp11 ;
 ELShift.    Exp10 ::= Exp10 "<<" Exp11 ;
 ERShift.    Exp10 ::= Exp10 ">>" Exp11 ;
+ECompLeq.   Exp9  ::= Exp8  "<=" Exp9 ;
+ECompGeq.   Exp9  ::= Exp8  ">=" Exp9 ;
+ECompLess.  Exp9  ::= Exp8  "<" Exp9 ;
+ECompGtr.   Exp9  ::= Exp8  ">" Exp9 ;
 EEq.        Exp8  ::= Exp7  "==" Exp8 ;
 EInEq.      Exp8  ::= Exp7  "!=" Exp8 ;
+ECon.       Exp4  ::= Exp3  "&&" Exp4 ;
+EDis.       Exp3  ::= Exp2  "||" Exp3 ;
 EAss.       Exp2  ::= Exp3  "="  Exp2 ;
 EAssAdd.    Exp2  ::= Exp3  "+=" Exp2 ;
 EAssSub.    Exp2  ::= Exp3  "-=" Exp2 ;
-ECond.      Exp2  ::= Exp2 "?" Stm ":" Stm ;
+ECond.      Exp2  ::= Exp3 "?" Exp2 ":" Exp2 ;
+EThrow.     Exp1  ::= "throw" Exp ;
 separator Exp16 "," ;
 
---Right associativity for the conditional has the usual meaning: 
---
---c1 ? t1 : c2 ? t2 : e2 
---
---is parsed as 
---c1 ? t1 : (c2 ? t2 : e2)
---and not as
---(c1 ? t1 : c2) ? t2 : e2.
---
---
---Note also that ? and : act like left and right --parenthesis, thus, parsing
---c1 ? c2 ? t1 : e1 : e2 
---succeeds effortlessly, yielding 
---c1 ? (c2 ? t1 : e1) : e2. 
 coercions Exp 16 ;
