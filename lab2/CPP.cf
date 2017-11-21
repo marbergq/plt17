@@ -1,83 +1,89 @@
--- Programs are lists of function definitions
+--- Programs are lists of function definitions ---
 
+--Prog. Program ::= [Stm] ;
 PDefs.   Program ::= [Def] ;
+terminator Def "" ;
 
 DFun.    Def    ::= Type Id "(" [Arg] ")" "{" [Stm] "}" ;
-
-terminator Def "" ;
+separator Arg "," ;
+terminator Stm "" ; 
+--kvar 
 
 ADecl.   Arg    ::= Type Id ;
 
-separator Arg "," ;
+--- Types and identifiers ---
 
--- Statements
-
-SExp.    Stm    ::= Exp ";" ;
-SDecls.  Stm    ::= Type [Id] ";" ;
-SInit.   Stm    ::= Type Id "=" Exp ";" ;
-SReturn. Stm    ::= "return" Exp ";" ;
-SWhile.  Stm    ::= "while" "(" Exp ")" Stm ;
-SBlock.  Stm    ::= "{" [Stm] "}" ;
-SIfElse. Stm    ::= "if" "(" Exp ")" Stm "else" Stm ;
-
-terminator Stm "" ;
-
--- Expressions
-
-ETrue.   Exp15  ::= "true" ;
-EFalse.  Exp15  ::= "false" ;
-EInt.    Exp15  ::= Integer ;
-EDouble. Exp15  ::= Double ;
-EId.     Exp15  ::= Id ;
-
-EApp.    Exp14  ::= Id "(" [Exp] ")" ;  -- Restricted to Id.
-
-EPostIncr.  Exp14  ::= Id "++" ;        -- Restricted to Id.
-EPostDecr.  Exp14  ::= Id "--" ;        -- Restricted to Id.
-
-EPreIncr.   Exp13  ::= "++" Id ;        -- Restricted to Id.
-EPreDecr.   Exp13  ::= "--" Id ;        -- Restricted to Id.
-
-ETimes.  Exp12  ::= Exp12 "*"  Exp13 ;  -- Left assoc.
-EDiv.    Exp12  ::= Exp12 "/"  Exp13 ;  -- Left assoc.
-
-EPlus.   Exp11  ::= Exp11 "+"  Exp12 ;  -- Left assoc.
-EMinus.  Exp11  ::= Exp11 "-"  Exp12 ;  -- Left assoc.
-
--- Removed 10: bit shift
-
-ELt.     Exp9   ::= Exp10 "<"  Exp10 ;  -- Non-assoc.
-EGt.     Exp9   ::= Exp10 ">"  Exp10 ;  -- Non-assoc.
-ELtEq.   Exp9   ::= Exp10 "<=" Exp10 ;  -- Non-assoc.
-EGtEq.   Exp9   ::= Exp10 ">=" Exp10 ;  -- Non-assoc.
-
-EEq.     Exp8   ::= Exp9  "==" Exp9  ;  -- Non-assoc.
-ENEq.    Exp8   ::= Exp9  "!=" Exp9  ;  -- Non-assoc.
-
--- Removed 5-7: bit-wise operations
-
-EAnd.    Exp4   ::= Exp4  "&&" Exp5  ;  -- Left assoc.
-
-EOr.     Exp3   ::= Exp3  "||" Exp4  ;  -- Left assoc.
-
-EAss.    Exp2   ::= Id    "="  Exp2  ;  -- Right assoc.  Restricted to Id.
-
--- Removed 0-1: throw, conditional
-
-coercions Exp 15 ;
-
-separator Exp "," ;
-
--- Types and identifiers
-
-rules Type   ::= "bool" | "int" | "double" | "void" ;
+TInt.    Type ::= "int" ;
+TDouble. Type ::= "double" ;
+--rules Type   ::= "bool" | "int" | "double" | "void" ;
 
 token Id (letter (letter | digit | '_')*) ;
 
-separator nonempty Id "," ;
+--separator nonempty Id "," ;
 
--- Comment syntax
+--- Statements ---
 
-comment "#" ;
-comment "//" ;
-comment "/*" "*/" ;
+SDecl.  Stm     ::= Type Ident ";"  ;
+--SDecls.  Stm    ::= Type [Id] ";" ;
+SAss.   Stm     ::= Ident "=" Exp ";" ;
+--SInit.   Stm    ::= Type Id "=" Exp ";" ;
+SBlock. Stm     ::= "{" [Stm] "}" ;
+--kvar
+SPrint. Stm     ::= "print" Exp  ";" ;
+--SExp.    Stm    ::= Exp ";" ;
+--SReturn. Stm    ::= "return" Exp ";" ;
+--SWhile.  Stm    ::= "while" "(" Exp ")" Stm ;
+--SIfElse. Stm    ::= "if" "(" Exp ")" Stm "else" Stm ;
+
+
+--- Expressions ---
+
+EVar.    Exp1 ::= Ident ;
+--EId.        Exp15  ::= Id ;
+EInt.    Exp1 ::= Integer ;
+--EInt.       Exp15  ::= Integer ;
+EDouble. Exp1 ::= Double ;
+--EDouble.    Exp15  ::= Double ;
+--EFalse.     Exp15  ::= "false" ;
+--ETrue.      Exp15  ::= "true" ;
+
+EAdd.    Exp  ::= Exp "+" Exp1 ;
+--EPlus.      Exp11  ::= Exp11 "+"  Exp12 ;  -- Left assoc.
+
+--EApp.       Exp14  ::= Id "(" [Exp] ")" ;  -- Restricted to Id.
+
+--EPostIncr.  Exp14  ::= Id "++" ;        -- Restricted to Id.
+--EPostDecr.  Exp14  ::= Id "--" ;        -- Restricted to Id.
+
+--EPreIncr.   Exp13  ::= "++" Id ;        -- Restricted to Id.
+--EPreDecr.   Exp13  ::= "--" Id ;        -- Restricted to Id.
+
+--ETimes.     Exp12  ::= Exp12 "*"  Exp13 ;  -- Left assoc.
+--EDiv.       Exp12  ::= Exp12 "/"  Exp13 ;  -- Left assoc.
+
+--EMinus.     Exp11  ::= Exp11 "-"  Exp12 ;  -- Left assoc.
+
+--ELt.        Exp9   ::= Exp10 "<"  Exp10 ;  -- Non-assoc.
+--EGt.        Exp9   ::= Exp10 ">"  Exp10 ;  -- Non-assoc.
+--ELtEq.      Exp9   ::= Exp10 "<=" Exp10 ;  -- Non-assoc.
+--EGtEq.      Exp9   ::= Exp10 ">=" Exp10 ;  -- Non-assoc.
+
+--EEq.        Exp8   ::= Exp9  "==" Exp9  ;  -- Non-assoc.
+--ENEq.       Exp8   ::= Exp9  "!=" Exp9  ;  -- Non-assoc.
+
+--EAnd.       Exp4   ::= Exp4  "&&" Exp5  ;  -- Left assoc.
+
+--EOr.        Exp3   ::= Exp3  "||" Exp4  ;  -- Left assoc.
+
+--EAss.       Exp2   ::= Id    "="  Exp2  ;  -- Right assoc.  Restricted to Id.
+
+coercions Exp 1 ;
+--coercions Exp 15 ;
+
+--separator Exp "," ;
+
+--- Comment syntax ---
+
+--comment "#" ;
+--comment "//" ;
+--comment "/*" "*/" ;
