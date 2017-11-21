@@ -17,15 +17,24 @@ type Sig     = Map Id ([Type], Type)
 --type Context = Map Id Type 
 --type Env     = (Sig, [Context])
 
+--finns is ErrM.hs: data Err a = Ok a | Bad String
 --typecheck :: Program -> Err ()
 --typecheck (Prog stms) = checkStms emptyEnv stms
-typecheck :: Program -> Err ()
-typecheck (PDefs defs) = listFunDefs emptySig defs
+typecheck :: Program -> Err Sig
+typecheck (PDefs defs) = Ok $ listFunDefs emptySig defs
 
 listFunDefs :: Sig -> [Def] -> Sig
-listFunDefs sigs []                            = sigs
-listFunDefs sigs ( (DFun t f args stms):funs ) =
-	listFunDefs (Map.insert f (args, t) sigs) funs
+listFunDefs sigs []                         = sigs
+listFunDefs sigs ( (DFun t f args _):funs ) =
+    listFunDefs (Map.insert f 
+                            ((listTypes [] args), t)
+                            sigs
+                 )
+                 funs
+
+listTypes :: [Type] -> [Arg] -> [Type]
+listTypes list []               = list
+listTypes list ((ADecl t _):args) = listTypes (t:list) args
 
 emptySig :: Sig
 emptySig =  Map.empty

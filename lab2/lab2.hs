@@ -18,7 +18,7 @@ check s = do
       putStrLn "SYNTAX ERROR"
       putStrLn err
       exitFailure
-    Ok  tree -> --do?
+    Ok  tree ->
       case typecheck tree of
         Bad err -> do
           putStrLn "TYPE ERROR"
