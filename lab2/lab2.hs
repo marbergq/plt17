@@ -23,7 +23,9 @@ check s = do
           putStrLn "TYPE ERROR"
           putStrLn err
           exitFailure
-        Ok _ -> interpret tree
+        Ok _ -> do
+          putStrLn "Type check OK"
+          interpret tree
 
 -- | Main: read file passed by only command line argument and call 'check'.
 
