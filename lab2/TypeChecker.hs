@@ -1,3 +1,8 @@
+{-
+This is our beginning of a type checker. It is not finished and doesn't work
+yet.
+-}
+
 module TypeChecker where
 
 import Control.Monad
@@ -13,25 +18,23 @@ type Env = (Sig,[Context])      -- functions and context stack
 type Sig = Map Id ([Type],Type) -- function type signature
 type Context = Map Id Type      -- variables with their types
 
--- typecheck p = return ()
 typecheck :: Program -> Err ()
 typecheck (PDefs defs) = do
-  env <- (listFunDefs emptySig defs, [emptyContext])
-  checkDefs env 
+  checkDefs (listFunDefs emptySig defs, [emptyContext]) defs
 
---This call is a list of all function definitions
+-- This function initializes the signature symbol table
 listFunDefs :: Sig -> [Def] -> Sig
 listFunDefs sigs []                         = sigs
 listFunDefs sigs ( (DFun t f args _):funs ) =
     listFunDefs (Map.insert f 
-                            ((listTypes [] args), t)
+                            ((reverse (listTypes [] args)), t)
                             sigs
                  )
                  funs
 
 listTypes :: [Type] -> [Arg] -> [Type]
 listTypes list []               = list
-listTypes list ((ADecl t _):args) = listTypes (list++t) args
+listTypes list ((ADecl t _):args) = listTypes (t:list) args
 
 checkDefs :: Env -> [Def] -> Err ()
 checkDefs env [] = return ()
@@ -40,6 +43,7 @@ checkDefs env (def:defs) = do checkDef env def
 
 checkDef :: Env -> Def -> Err ()
 -- Maybe add a new scope.
+-- The return type doesn't match with addArgs.
 checkDef env (DFun t f args stms) = do env' <- addArgs env args
                                        checkStms env' stms
 
@@ -88,6 +92,7 @@ inferExp env x = case x of
         inferMon [Type_int, Type_double] env exp
     EPreDecr exp ->
         inferMon [Type_int, Type_double] env exp
+    -- More steps to be added here.
 
 inferMon :: [Type] -> Env -> Exp -> Err Type
 inferMon types env exp = do
@@ -118,7 +123,6 @@ checkExp env typ exp = do
         "but found " ++ printTree typ2
 
 
--- This doesn't correspond to: type Env = (Sig,[Context])
 emptyEnv :: Env
 emptyEnv = (emptySig, [])
 
@@ -150,5 +154,7 @@ lookupFun (sigs, cons) x = case Map.lookup x sigs of
 addScope :: Env -> Env
 addScope (sigs, cons) = (sigs, [emptyContext]:cons)
 
+-- This function is maybe unnecessary since listFunDefs
+-- does the job in the beginning.
 addSig :: Env -> Ident -> [Type] -> Type -> Env
 addSig (sigs,cons) f args ret = (Map.insert f (args, ret) sigs, cons)
