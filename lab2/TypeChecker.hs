@@ -44,12 +44,16 @@ checkDefs env (def:defs) = do checkDef env def
 checkDef :: Env -> Def -> Err ()
 -- Maybe add a new scope.
 -- The return type doesn't match with addArgs.
-checkDef env (DFun t f args stms) = do env' <- addArgs env args
-                                       checkStms env' stms
+checkDef env (DFun t f args stms) = case addArgs env args of
+                                      Bad err -> fail err
+                                      Ok env' -> checkStms env' stms
 
 addArgs :: Env -> [Arg] -> Err Env
-addArgs env [] = env
-addArgs env ((ADecl t id):args) = addArgs (addVar env id t) args
+addArgs env [] = Ok env
+--addArgs env ((ADecl t id):args) = addArgs (addVar env id t) args
+addArgs env ((ADecl t id):args) = case addVar env id t of
+                                    Bad err -> fail err
+                                    Ok env' -> addArgs env' args
 
 checkStm :: Env -> Type -> Stm -> Err Env
 checkStm env val x = case x of
@@ -133,10 +137,10 @@ emptySig = Map.empty
 emptyContext :: Context
 emptyContext = Map.empty
 
-addVar :: Env -> Ident -> Type -> Err Env
+addVar :: Env -> Id -> Type -> Err Env
 addVar (sigs, (scope:rest)) x t =
     case Map.lookup x scope of
-      Nothing -> return (sigs, (((x,t):scope):rest))
+      Nothing -> return (sigs, ((Map.insert x t scope):rest))
       Just _  -> fail ("Variable " ++ printTree x ++ " already declared.")
 
 lookupVar :: Env -> Ident -> Err Type
