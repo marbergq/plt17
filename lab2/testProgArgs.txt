@@ -1,1 +1,4 @@
-int korv (int x, double y){print 5;}
+int korv (int x, double y){return 5;}
+double diameter_liten (double pi){return 3.1415926;}
+
+bool jf ( bool ture ) { return 42; }
