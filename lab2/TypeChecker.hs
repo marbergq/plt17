@@ -19,7 +19,7 @@ type Sig = Map Id ([Type],Type) -- function type signature
 type Context = Map Id Type      -- variables with their types
 
 typecheck :: Program -> Err ()
-typecheck (PDefs defs) = do
+typecheck (PDefs defs) =
   checkDefs (listFunDefs emptySig defs, [emptyContext]) defs
 
 -- This function initializes the signature symbol table
@@ -38,21 +38,22 @@ listTypes list ((ADecl t _):args) = listTypes (t:list) args
 
 checkDefs :: Env -> [Def] -> Err ()
 checkDefs env [] = return ()
-checkDefs env (def:defs) = do checkDef env def
-                              checkDefs env defs
+checkDefs env (def:defs) = case checkDef env def of
+                              Bad err -> fail err
+                              Ok _ -> checkDefs env defs
 
 checkDef :: Env -> Def -> Err ()
 -- Maybe add a new scope.
 -- The return type doesn't match with addArgs.
 checkDef env (DFun t f args stms) = case addArgs env args of
-                                      Bad err -> fail err
+                                      Bad err -> fail ("In function " ++ (show f) ++ ": " ++ err)
                                       Ok env' -> checkStms env' stms
 
 addArgs :: Env -> [Arg] -> Err Env
 addArgs env [] = Ok env
 --addArgs env ((ADecl t id):args) = addArgs (addVar env id t) args
 addArgs env ((ADecl t id):args) = case addVar env id t of
-                                    Bad err -> fail err
+                                    Bad err -> fail ("Variable declared twice in argument list. " ++ err)
                                     Ok env' -> addArgs env' args
 
 checkStm :: Env -> Type -> Stm -> Err Env
