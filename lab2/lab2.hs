@@ -4,6 +4,7 @@ import System.Exit (exitFailure)
 import CPP.Lex
 import CPP.Par
 import CPP.ErrM
+import CPP.Print
 
 import TypeChecker
 import Interpreter
@@ -24,8 +25,8 @@ check s = do
           putStrLn err
           exitFailure
         Ok _ -> do
-          putStrLn "Type check OK"
-          interpret tree
+          putStrLn $ "Type check OK. Tree: \n" ++ (printTree tree) ++ " Do not interpret!"
+          -- interpret tree
 
 -- | Main: read file passed by only command line argument and call 'check'.
 
