@@ -1,4 +1,4 @@
---____Programs are lists of function definitions____
+-----Programs are lists of function definitions____
 
 PDefs.   Program ::= [Def] ;
 terminator Def "" ;
@@ -9,71 +9,62 @@ terminator Stm "" ;
 
 ADecl.   Arg    ::= Type Id ;
 
---____Types and identifiers____
+------Types and identifiers____
 
 rules Type   ::= "bool" | "int" | "double" | "void" ;
 
 token Id (letter (letter | digit | '_')*) ;
 
---____Statements____
+------Statements____
 
-SDecl.  Stm     ::= Type Id ";"  ;
---SDecls.  Stm    ::= Type [Id] ";" ;
---Notice that argument declarations with multiple variables (int x, y) are not included????
-SAss.   Stm     ::= Id "=" Exp ";" ;
---SInit.   Stm    ::= Type Id "=" Exp ";" ;
+SDecls.  Stm    ::= Type [Id] ";" ;
+SInit.   Stm    ::= Type Id "=" Exp ";" ;
 SBlock. Stm     ::= "{" [Stm] "}" ;
 SReturn. Stm    ::= "return" Exp ";" ;
---SExp.    Stm    ::= Exp ";" ;
---SWhile.  Stm    ::= "while" "(" Exp ")" Stm ;
---SIfElse. Stm    ::= "if" "(" Exp ")" Stm "else" Stm ;
+SExp.    Stm    ::= Exp ";" ;
+SWhile.  Stm    ::= "while" "(" Exp ")" Stm ;
+SIfElse. Stm    ::= "if" "(" Exp ")" Stm "else" Stm ;
 
---separator nonempty Id "," ;
+separator nonempty Id "," ;
 
---____Expressions____
-
+------Expressions____
 
 EId.        Exp15  ::= Id ;
 EInt.       Exp15  ::= Integer ;
 EDouble.    Exp15  ::= Double ;
---EFalse.     Exp15  ::= "false" ;
---ETrue.      Exp15  ::= "true" ;
+EFalse.     Exp15  ::= "false" ;
+ETrue.      Exp15  ::= "true" ;
 
-EAdd.    Exp  ::= Exp "+" Exp1 ;
---EPlus.      Exp11  ::= Exp11 "+"  Exp12 ;  -- Left assoc.
+EPlus.      Exp11  ::= Exp11 "+"  Exp12 ;  -- Left assoc.
+EMinus.     Exp11  ::= Exp11 "-"  Exp12 ;  -- Left assoc.
+ETimes.     Exp12  ::= Exp12 "*"  Exp13 ;  -- Left assoc.
+EDiv.       Exp12  ::= Exp12 "/"  Exp13 ;  -- Left assoc.
 
---EApp.       Exp14  ::= Id "(" [Exp] ")" ;  -- Restricted to Id.
+EApp.       Exp14  ::= Id "(" [Exp] ")" ;  -- Restricted to Id.
+EPostIncr.  Exp14  ::= Id "++" ;        -- Restricted to Id.
+EPostDecr.  Exp14  ::= Id "--" ;        -- Restricted to Id.
+EPreIncr.   Exp13  ::= "++" Id ;        -- Restricted to Id.
+EPreDecr.   Exp13  ::= "--" Id ;        -- Restricted to Id.
 
---EPostIncr.  Exp14  ::= Id "++" ;        -- Restricted to Id.
---EPostDecr.  Exp14  ::= Id "--" ;        -- Restricted to Id.
 
---EPreIncr.   Exp13  ::= "++" Id ;        -- Restricted to Id.
---EPreDecr.   Exp13  ::= "--" Id ;        -- Restricted to Id.
+ELt.        Exp9   ::= Exp10 "<"  Exp10 ;  -- Non-assoc.
+EGt.        Exp9   ::= Exp10 ">"  Exp10 ;  -- Non-assoc.
+ELtEq.      Exp9   ::= Exp10 "<=" Exp10 ;  -- Non-assoc.
+EGtEq.      Exp9   ::= Exp10 ">=" Exp10 ;  -- Non-assoc.
 
---ETimes.     Exp12  ::= Exp12 "*"  Exp13 ;  -- Left assoc.
---EDiv.       Exp12  ::= Exp12 "/"  Exp13 ;  -- Left assoc.
+EEq.        Exp8   ::= Exp9  "==" Exp9  ;  -- Non-assoc.
+ENEq.       Exp8   ::= Exp9  "!=" Exp9  ;  -- Non-assoc.
 
---EMinus.     Exp11  ::= Exp11 "-"  Exp12 ;  -- Left assoc.
+EAnd.       Exp4   ::= Exp4  "&&" Exp5  ;  -- Left assoc.
+EOr.        Exp3   ::= Exp3  "||" Exp4  ;  -- Left assoc.
 
---ELt.        Exp9   ::= Exp10 "<"  Exp10 ;  -- Non-assoc.
---EGt.        Exp9   ::= Exp10 ">"  Exp10 ;  -- Non-assoc.
---ELtEq.      Exp9   ::= Exp10 "<=" Exp10 ;  -- Non-assoc.
---EGtEq.      Exp9   ::= Exp10 ">=" Exp10 ;  -- Non-assoc.
-
---EEq.        Exp8   ::= Exp9  "==" Exp9  ;  -- Non-assoc.
---ENEq.       Exp8   ::= Exp9  "!=" Exp9  ;  -- Non-assoc.
-
---EAnd.       Exp4   ::= Exp4  "&&" Exp5  ;  -- Left assoc.
-
---EOr.        Exp3   ::= Exp3  "||" Exp4  ;  -- Left assoc.
-
---EAss.       Exp2   ::= Id    "="  Exp2  ;  -- Right assoc.  Restricted to Id.
+EAss.       Exp2   ::= Id    "="  Exp2  ;  -- Right assoc.  Restricted to Id.
 
 coercions Exp 15 ;
 
---separator Exp "," ;
+separator Exp "," ;
 
---____Comment syntax____
+------Comment syntax____
 
 --comment "#" ;
 --comment "//" ;
