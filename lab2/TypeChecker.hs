@@ -45,7 +45,12 @@ checkDefs env (def:defs) = case checkDef env def of
 checkDef :: Env -> Def -> Err ()
 checkDef env (DFun t f args stms) = case addArgs (addScope env) args of
                                       Bad err -> fail ("In function " ++ (show f) ++ ": " ++ err)
-                                      Ok env' -> checkStms env' stms
+                                      Ok env' -> do checkStms env' stms f
+                                                    return ()
+-- checkDef env (DFun t f args stms) = do env' <- addVar env [f] t
+--                                        case addArgs (addScope env') args of
+--                                          Bad err -> fail ("In function " ++ (show f) ++ ": " ++ err)
+--                                          Ok env'' -> checkStms env'' stms
 
 addArgs :: Env -> [Arg] -> Err Env
 addArgs env [] = Ok env
@@ -53,16 +58,27 @@ addArgs env ((ADecl t id):args) = case addVar env [id] t of
                                     Bad err -> fail ("Variable declared twice in argument list. " ++ err)
                                     Ok env' -> addArgs env' args
 
-checkStm :: Env -> Stm -> Err Env
-checkStm env s = 
+checkStm :: Env -> Stm -> Id -> Err Env
+checkStm env s fid = 
     case s of
         SExp e          -> do inferExp env e
                               return env
         SDecls t ids    -> addVar env ids t
-        SInit t id e    -> do t <- inferExp env e
-                              addVar env [id] t
-        SBlock stms     -> do checkStms (addScope env) stms
+        SInit t id e    -> case t of
+                                Type_void -> fail ("Initialization type is void: "
+                                                   ++ printTree t)
+                                _ -> do checkExp env e t
+                                        addVar env [id] t
+        SReturn e       -> do t <- lookupFun env fid
+                              checkExp env e (snd t)
                               return env
+        SWhile e stm    -> do checkExp env e Type_bool
+                              checkStm env stm fid
+        SBlock stms     -> do checkStms (addScope env) stms fid
+                              return env
+        SIfElse e s1 s2 -> do checkExp env e Type_bool
+                              checkStm env s1 fid
+                              checkStm env s2 fid
 
 
 
@@ -77,10 +93,10 @@ checkStm env s =
 --         checkExp env Type_bool exp
 --         checkStm env val stm
 
-checkStms :: Env -> [Stm] -> Err ()
-checkStms env [] = return ()
-checkStms env (st:stms) = do env' <- checkStm env st
-                             checkStms env' stms
+checkStms :: Env -> [Stm] -> Id -> Err Env
+checkStms env [] _ = return env
+checkStms env (stm:stms) fid = do env' <- checkStm env stm fid
+                                  checkStms env' stms fid
 
 -- checkStms :: Env -> [Stm] -> Err Env
 -- checkStms env stms = case stms of
@@ -89,25 +105,55 @@ checkStms env (st:stms) = do env' <- checkStm env st
 --         env' <- checkStm env x
 --         checkStms env' rest
 
+-- Expressions 
+-- NTS: I would like to try to use printTree e in the case block
 inferExp :: Env -> Exp -> Err Type
-inferExp env e = 
+inferExp env e =
     case e of
-      EId x         -> lookupVar env x
       EInt _         -> return Type_int
       EDouble _      -> return Type_double
       ETrue          -> return Type_bool
       EFalse         -> return Type_bool
-      -- EPlus e1 e2     -> do t1 <- inferExp env e1
-      --                      t2 <- inferExp env e2
-      --                      if t1 == t2 
-      --                        then return t1
-      --                        else fail (printTree e1 ++ " has type " ++ printTree t1
-      --                                    ++ " but " ++ printTree e2 
-      --                                    ++ " has type " ++ printTree t2)
-      EPlus e1 e2    -> inferBin [Type_int, Type_double] env e1 e2
+      EId x          -> lookupVar env x
+      EApp f es      -> do funType <- lookupFun env f
+                           case checkArgs env es (fst funType) of
+                             Bad err -> fail ("Illegal function call "
+                                              ++ printTree f ++ ". " ++ err)
+                             Ok _    -> return (snd funType)
+                           -- map (\p -> checkExp env (fst p) (snd p)) (zip es (fst funType)) 
+
+      EPlus e1 e2    -> inferBinary [Type_int, Type_double] env e1 e2
+      EMinus e1 e2   -> inferBinary [Type_int, Type_double] env e1 e2
+      ETimes e1 e2   -> inferBinary [Type_int, Type_double] env e1 e2
+      EDiv e1 e2     -> inferBinary [Type_int, Type_double] env e1 e2
       EAss id e      -> do t <- lookupVar env id
                            checkExp env e t
                            return t
+      EOr e1 e2      -> inferBinary [Type_bool] env e1 e2
+      EAnd e1 e2     -> inferBinary [Type_bool] env e1 e2
+      EEq e1 e2      -> inferBinary [Type_int, Type_double, Type_bool] env e1 e2
+      ENEq e1 e2     -> inferBinary [Type_int, Type_double, Type_bool] env e1 e2
+      ELt e1 e2      -> inferBinary [Type_int, Type_double] env e1 e2
+      EGt e1 e2      -> inferBinary [Type_int, Type_double] env e1 e2
+      ELtEq e1 e2    -> inferBinary [Type_int, Type_double] env e1 e2
+      EGtEq e1 e2    -> inferBinary [Type_int, Type_double] env e1 e2
+      EPostIncr x    -> do t <- lookupVar env x
+                           if elem t [Type_int, Type_double]
+                            then return t
+                            else fail "Wrong type in increment expression."
+                            -- Try printTree e sometime here
+      EPostDecr x    -> do t <- lookupVar env x
+                           if elem t [Type_int, Type_double]
+                            then return t
+                            else fail "Wrong type in decrement expression."
+      EPreIncr x     -> do t <- lookupVar env x
+                           if elem t [Type_int, Type_double]
+                            then return t
+                            else fail "Wrong type in increment expression."
+      EPreDecr x     -> do t <- lookupVar env x
+                           if elem t [Type_int, Type_double]
+                            then return t
+                            else fail "Wrong type in decrement expression."
 
 -- inferExp :: Env -> Exp -> Err Type
 -- inferExp env x = case x of
@@ -143,17 +189,17 @@ inferExp env e =
 --             else
 --                 fail $ "wrong type of expression " ++ printTree exp
 
-inferBin :: [Type] -> Env -> Exp -> Exp -> Err Type
-inferBin types env exp1 exp2 = do
-    typ <- inferExp env exp1
-    if elem typ types
+inferBinary :: [Type] -> Env -> Exp -> Exp -> Err Type
+inferBinary validTypes env e1 e2 = do
+    t1 <- inferExp env e1
+    if elem t1 validTypes
         then
-            case checkExp env exp2 typ of
-                Bad err -> fail (printTree exp1 ++ " has type " ++ printTree typ
+            case checkExp env e2 t1 of
+                Bad err -> fail (printTree e1 ++ " has type " ++ printTree t1
                                  ++ " whereas " ++ err)
-                Ok _ -> return typ
+                Ok _    -> return t1
         else
-            fail $ "wrong type of expression " ++ printTree exp1
+            fail $ "Wrong type of expression " ++ printTree t1
 
 checkExp :: Env -> Exp -> Type -> Err ()
 checkExp env e t = 
@@ -162,6 +208,15 @@ checkExp env e t =
          then fail (printTree e ++ " has type " ++ printTree t'
                     ++ " expected " ++ printTree t)
          else return ()
+
+-- This function is used to check EApp argument list
+checkArgs :: Env -> [Exp] -> [Type] -> Err ()
+checkArgs env [] [] = return ()
+checkArgs env [] _ = fail $ "In argument list: Too few arguments provided."
+checkArgs env _ [] = fail $ "In argument list: Too many arguments provided."
+checkArgs env (e:es) (t:ts) = case checkExp env e t of
+                                Bad err -> fail $ "In argument list: " ++ err
+                                Ok _    -> checkArgs env es ts
 
 -- checkExp :: Env -> Type -> Exp -> Err ()
 -- checkExp env typ exp = do
