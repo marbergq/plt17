@@ -9,9 +9,5 @@ import CPP.Abs
 import CPP.Print
 import CPP.ErrM
 
--- interpreter --
-
---quickcheck 
-
 interpret :: Program -> IO ()
 interpret p = putStrLn "no interpreter yet"

@@ -1,10 +1,10 @@
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 
-import CPP.Abs
 import CPP.Lex
 import CPP.Par
 import CPP.ErrM
+import CPP.Print
 
 import TypeChecker
 import Interpreter
@@ -18,15 +18,15 @@ check s = do
       putStrLn "SYNTAX ERROR"
       putStrLn err
       exitFailure
-    Ok  tree ->
+    Ok  tree -> do
       case typecheck tree of
         Bad err -> do
           putStrLn "TYPE ERROR"
           putStrLn err
           exitFailure
         Ok _ -> do
-          putStrLn "type check ok"
-          interpret tree
+          putStrLn $ "Type check OK. Tree: \n" ++ (printTree tree) ++ " Do not interpret!"
+          -- interpret tree
 
 -- | Main: read file passed by only command line argument and call 'check'.
 
