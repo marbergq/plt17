@@ -23,8 +23,8 @@ type Sig = Map Id Def
 type Context = Map Id Value
 
 interpret :: Program -> IO ()
-interpret (PDefs defs) = do env <- addDefs starterEnv defs
-                            (DFun t f _ stms) <- lookupFun env (Id "main")
+interpret (PDefs defs) = do env <- return (addDefs starterEnv defs)
+                            (DFun t f _ stms) <- return (lookupFun env (Id "main"))
                             -- Maybe check that the argument list is empty??
                             -- Maybe check that the type is void??
                             execStms env stms
@@ -34,7 +34,7 @@ interpret (PDefs defs) = do env <- addDefs starterEnv defs
 -- What if two functions have the same name???
 addDefs :: Env -> [Def] -> Env
 addDefs env [] = env
-addDefs (sigs, scopes) def@(DFun _ f _ _):defs =
+addDefs (sigs, scopes) (def@(DFun _ f _ _):defs) =
     addDefs ((Map.insert f def sigs), scopes) defs
 
 execStms :: Env -> [Stm] -> IO Env
@@ -74,13 +74,15 @@ starterSig = Map.empty
 addVar :: Env -> Id -> Env
 -- Add functionality to add multiple variables???
 -- If a variable already has been declared this error is caught by the type checker
-addVar (sigs, (scope:rest) x = (sigs, ((Map.insert x VUndef scope):rest))
+addVar (sigs, (scope:rest)) x = (sigs, ((Map.insert x VUndef scope):rest))
 
 setVar :: Env -> Id -> Value -> Env
 setVar (_, []) x _ = error $ "Unknown variable " ++ printTree x ++ "."
--- The variable is not in this context
-setVar (sigs, []:rest) x v = let (sigs', rest') = setVar (sigs, rest) x v
-                                in (sigs', []:rest')
+
+-- This case is probably not needed when we use Data.Map
+-- setVar (sigs, ((Map.empty):rest)) x v = let (sigs', rest') = setVar (sigs, rest) x v
+--                                           in (sigs', (Map.empty):rest')
+
 -- The current context is not empty -> look for the variable and update if found.
 setVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
     Just _  -> (sigs, (Map.insert x v scope):rest)
@@ -88,15 +90,15 @@ setVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
                 in (sigs', scope:rest')
 
 lookupVar :: Env -> Id -> Value
-lookupVar (_, []) x = error $ "uninitialized variable " ++ printTree x ++ "."
+lookupVar (_, []) x = error $ "Uninitialized variable " ++ printTree x ++ "."
 lookupVar (sigs, (scope:rest)) x = case Map.lookup x scope of
                                      Nothing -> lookupVar (sigs, rest) x
                                      Just v  -> v
 
 -- Add function lookupFun ???
 lookupFun :: Env -> Id -> Def
-lookupFun (sigs, _) f = case Map.lookup x sigs of
-    Nothing  -> error $ "Unknown function " ++ printTree x ++ "."
+lookupFun (sigs, _) f = case Map.lookup f sigs of
+    Nothing  -> error $ "Unknown function " ++ printTree f ++ "."
     Just def -> def
 
 enterScope :: Env -> Env
