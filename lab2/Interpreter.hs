@@ -9,23 +9,33 @@ import CPP.Abs
 import CPP.Print
 import CPP.ErrM
 
-interpret :: Program -> IO ()
-interpret p = putStrLn "no interpreter yet"
-
-data Value = VInt Integer | VDouble Double | VBool Bool | VUndef
+data Value = VInt Integer | VDouble Double | VBool Bool | VVoid | VUndef
 
 instance Show Value where
     show (VInt i)    = show i
     show (VDouble d) = show d
+    show (VBool b)   = show b
+    show VVoid       = "void" -- is this correct?
     show VUndef      = "undefined"
 
 type Env = (Sig,[Context])
-type Sig = Map Id ([Type],Type)
+type Sig = Map Id Def
 type Context = Map Id Value
 
 interpret :: Program -> IO ()
-interpret (Prog stms) = do execStms emptyEnv stms
-                           return ()
+interpret (PDefs defs) = do env <- addDefs starterEnv defs
+                            (DFun t f _ stms) <- lookupFun env (Id "main")
+                            -- Maybe check that the argument list is empty??
+                            -- Maybe check that the type is void??
+                            execStms env stms
+                            -- Alternatively call evalExp on an EApp of main.
+                            return ()
+
+-- What if two functions have the same name???
+addDefs :: Env -> [Def] -> Env
+addDefs env [] = env
+addDefs (sigs, scopes) def@(DFun _ f _ _):defs =
+    addDefs ((Map.insert f def sigs), scopes) defs
 
 execStms :: Env -> [Stm] -> IO Env
 execStms env [] = return env
@@ -67,12 +77,15 @@ addVar :: Env -> Id -> Env
 addVar (sigs, (scope:rest) x = (sigs, ((Map.insert x VUndef scope):rest))
 
 setVar :: Env -> Id -> Value -> Env
-setVar [] x _ = error $ "Unknown variable " ++ printTree x ++ "."
-setVar ([]:rest) x v = []:setVar rest x v
-setVar ((p@(y,_):scope):rest) x v 
-    | y == x = ((x,v):scope):rest
-    | otherwise = let scope':rest' = setVar (scope:rest) x v
-                   in (p:scope'):rest'
+setVar (_, []) x _ = error $ "Unknown variable " ++ printTree x ++ "."
+-- The variable is not in this context
+setVar (sigs, []:rest) x v = let (sigs', rest') = setVar (sigs, rest) x v
+                                in (sigs', []:rest')
+-- The current context is not empty -> look for the variable and update if found.
+setVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
+    Just _  -> (sigs, (Map.insert x v scope):rest)
+    Nothing -> let (sigs', rest') = setVar (sigs, rest) x v
+                in (sigs', scope:rest')
 
 lookupVar :: Env -> Id -> Value
 lookupVar (_, []) x = error $ "uninitialized variable " ++ printTree x ++ "."
@@ -81,6 +94,10 @@ lookupVar (sigs, (scope:rest)) x = case Map.lookup x scope of
                                      Just v  -> v
 
 -- Add function lookupFun ???
+lookupFun :: Env -> Id -> Def
+lookupFun (sigs, _) f = case Map.lookup x sigs of
+    Nothing  -> error $ "Unknown function " ++ printTree x ++ "."
+    Just def -> def
 
 enterScope :: Env -> Env
 enterScope (sigs, cons) = (sigs, (Map.empty):cons)
