@@ -61,30 +61,33 @@ execStms env (st:stms) = do env' <- execStm env st
 execStm :: Env -> Stm -> IO Env
 execStm env s = 
     case s of
-      SExp e        -> return (fst . evalExp env e)
-      SDecls t x:xs -> execStms (addVar env x) (SDecls t xs)
-      SDecls t []   -> return env
-      SInit _ x e   -> return setVar (addVar env x) x (fst . evalExp env e)
-      SReturn e     -> return (fst . evalExp env e) --what about returning the vaue?
-      SWhile eCon s -> do env' <- (fst . evalExp env eCon)
-                       case (snd . evalExp env' eCon)  of
-                         False -> return env'
-                         _     -> do env'' <- (execStm env' s)
-                                     execStm env'' (SWhile eCon s)
-      SBlock stms   -> do env' <- execStms (enterScope env) stms
-                          return $ leaveScope env'
+      SExp e          -> return (fst $ evalExp env e)
+      SDecls t (x:xs) -> execStm (addVar env x) (SDecls t xs)
+      SDecls _ []     -> return env
+      SInit _ x e     -> return ( setVar (addVar env x) x 
+                                         (snd $ evalExp env e) )
+      SReturn e       -> return ( fst $ evalExp env e ) 
+                         --what about returning the vaue?
+      SWhile eCon s   -> do 
+                            if (val == False)
+                               then return env'
+                               else do env'' <- (execStm env' s)
+                                       execStm env'' (SWhile eCon s)
+                            where (env', VBool val) = (evalExp env eCon)
+      SBlock stms     -> do env' <- execStms (enterScope env) stms
+                            return (leaveScope env')
       SIfElse eCon sI sE -> case (evalExp env eCon) of
-                              (env', True) -> execStm env' sI
-                              (env', _ )   -> execStm env' eE
+                              (env', VBool True) -> execStm env' sI
+                              (env', _ )   -> execStm env' sE
 
 evalExp :: Env -> Exp -> (Env, Value)
 evalExp env e = 
     case e of
       --ETrue
       --EFalse
-      EInt i         -> VInt i
-      EDouble d      -> VDouble d
-      EId x          -> lookupVar env x
+      EInt i         -> (env, VInt i)
+      EDouble d      -> (env, VDouble d)
+      EId x          -> (env, lookupVar env x)
       --EApp
       --EPostIncr
       --EPostDecr
@@ -92,11 +95,11 @@ evalExp env e =
       --EPreDecr
       --ETimes
       --EDiv
-      EPlus e1 e2     -> let v1 = evalExp env e1
-                            v2 = evalExp env e2
+      EPlus e1 e2     -> let v1 = snd $ evalExp env e1
+                             v2 = snd $ evalExp env e2
                          in case (v1,v2) of
-                              (VInt i1, VInt i2)       -> VInt (i1+i2)
-                              (VDouble d1, VDouble d2) -> VDouble (d1+d2)
+                              (VInt i1, VInt i2)       -> (env, VInt (i1+i2) )
+                              (VDouble d1, VDouble d2) -> (env, VDouble (d1+d2) )
       --EMinus
       --ELt
       --EGt

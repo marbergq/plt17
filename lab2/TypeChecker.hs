@@ -24,8 +24,8 @@ addDefs :: Sig -> [Def] -> Err Sig
 addDefs sigs []                         = return sigs
 addDefs sigs ( (DFun t f args _):funs ) =
     case Map.lookup f sigs of 
-      _       -> fail ("function " ++ printTree f ++ " already declared.")
       Nothing -> addDefs (Map.insert f ((reverse (enlistTypes [] args)), t) sigs) funs
+      _       -> fail ("function " ++ printTree f ++ " already declared.")
 
 enlistTypes :: [Type] -> [Arg] -> [Type]
 enlistTypes list []               = list
