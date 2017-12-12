@@ -12,13 +12,13 @@ separator Arg "," ;
 
 -- Statements
 
-SExp.    Stm    ::= Exp ";" ;
-SDecls.  Stm    ::= Type [Id] ";" ;
-SInit.   Stm    ::= Type Id "=" Exp ";" ;
-SReturn. Stm    ::= "return" Exp ";" ;
-SWhile.  Stm    ::= "while" "(" Exp ")" Stm ;
-SBlock.  Stm    ::= "{" [Stm] "}" ;
-SIfElse. Stm    ::= "if" "(" Exp ")" Stm "else" Stm ;
+SExp.    Stm ::= Exp ";" ;
+SDecls.  Stm ::= Type [Id] ";" ;
+SInit.   Stm ::= Type Id "=" Exp ";" ;
+SReturn. Stm ::= "return" Exp ";" ;
+SWhile.  Stm ::= "while" "(" Exp ")" Stm ;
+SBlock.  Stm ::= "{" [Stm] "}" ;
+SIfElse. Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
 
 terminator Stm "" ;
 

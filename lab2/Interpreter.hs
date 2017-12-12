@@ -1,6 +1,8 @@
 module Interpreter where
 
 import Control.Monad
+--import System.Environment (getArgs)
+--import System.Exit (exitFailure)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -8,6 +10,9 @@ import qualified Data.Map as Map
 import CPP.Abs
 import CPP.Print
 import CPP.ErrM
+-- possylby these two as well
+import CPP.Lex
+import CPP.Par
 
 data Value = VInt Integer | VDouble Double | VBool Bool | VVoid | VUndef
 
@@ -19,26 +24,37 @@ instance Show Value where
     show VUndef      = "undefined"
 
 type Env = (Sig,[Context])
-type Sig = Map Id Def
+type Sig = Map Id Def --What about type Sig = [(Id, [Value] -> IO Value)]
 type Context = Map Id Value
 
+--DOES NOT HAVE RETURN TYPE FOR ERRORS
 interpret :: Program -> IO ()
-interpret (PDefs defs) = do env <- return (addDefs starterEnv defs)
-                            (DFun t f _ stms) <- return (lookupFun env (Id "main"))
-                            -- Maybe check that the argument list is empty??
-                            -- Maybe check that the type is void??
-                            execStms env stms
-                            -- Alternatively call evalExp on an EApp of main.
+interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs) 
+                         --                (Id "main")) of 
+                         --       (DFun VVoid f [] stms) -> do 
+                         --                           execStms env stms
+                         --                           return ()
+                         --       (DFun _ _ _ _)      -> fail $ "Error in main function. Either a nonempty argument list or return type ios not void. "
+                         --       error s                -> fail $ "Program missing main function" ++ s 
+                         do env <- return (addDefs starterEnv defs)
+                            (DFun t f _ stms) <- return
+                                                (lookupFun env (Id "main"))
+                            execStms (enterScope env) stms --eller hur
                             return ()
 
+
 -- What if two functions have the same name???
+-- shouldn't that be handeled in the type checker?
 addDefs :: Env -> [Def] -> Env
 addDefs env [] = env
 addDefs (sigs, scopes) (def@(DFun _ f _ _):defs) =
     addDefs ((Map.insert f def sigs), scopes) defs
 
+--kallas bara på för en lista av stms,
+--vilka bara finns i funktionernas block of stms eller i ett stmt block
+--därför alltid leaveScope
 execStms :: Env -> [Stm] -> IO Env
-execStms env [] = return env
+execStms env [] = return leaveScope env
 execStms env (st:stms) = do env' <- execStm env st
                             execStms env' stms
 
@@ -48,7 +64,8 @@ execStm env s =
       SDecl _ x       -> return (addVar env x)
       SAss x e        -> return (setVar env x (evalExp env e))
       SBlock stms     -> do env' <- execStms (enterScope env) stms
-                            return (leaveScope env')
+                            return env'
+                            --return (leaveScope env')
       SPrint e        -> do print (evalExp env e)
                             return env
 
@@ -70,6 +87,16 @@ starterEnv = (starterSig, [])
 starterSig :: Sig
 starterSig = Map.empty
 -- Insert the built-in functions???
+-- yep. what if :  (as aarnes lecture)
+---sig ===[(Id, [Value] -> IO Value)]
+{-
+(Id "printInt",   \ [v] -> putStrLn (printValue v) >> return Vvoid)
+(Id "printDouble",\ [v] -> putStrLn (printValue v) >> return Vvoid)
+(Id "readInt",    \ []  -> getLine >>= return . Vint . read)
+(Id "readDouble", \ []  -> getLine >>= return . Vdouble . read)
+-}
+
+
 
 addVar :: Env -> Id -> Env
 -- Add functionality to add multiple variables???
@@ -95,14 +122,14 @@ lookupVar (sigs, (scope:rest)) x = case Map.lookup x scope of
                                      Nothing -> lookupVar (sigs, rest) x
                                      Just v  -> v
 
--- Add function lookupFun ???
 lookupFun :: Env -> Id -> Def
 lookupFun (sigs, _) f = case Map.lookup f sigs of
     Nothing  -> error $ "Unknown function " ++ printTree f ++ "."
     Just def -> def
+-- DOES NOT HAVE RETURN TYPE FOR ERRORS
 
 enterScope :: Env -> Env
-enterScope (sigs, cons) = (sigs, (Map.empty):cons)
+enterScope (sigs, scopes) = (sigs, (Map.empty):scopes)
 
 leaveScope :: Env -> Env
-leaveScope (sigs, (_:cons)) = (sigs, cons)
+leaveScope (sigs, (_:scopes)) = (sigs, scopes)
