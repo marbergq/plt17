@@ -43,8 +43,6 @@ interpret (PDefs defs) = putStrLn "No interpreter"
 --                            execStms (enterScope env) stms
 --                            return ()
 
-{-
-
 -- What if two functions have the same name???
 -- shouldn't that be handeled in the type checker?
 addDefs :: Env -> [Def] -> Env
@@ -63,35 +61,52 @@ execStms env (st:stms) = do env' <- execStm env st
 execStm :: Env -> Stm -> IO Env
 execStm env s = 
     case s of
-      SExp e        -> return (evalExp env e)
+      SExp e        -> return (fst . evalExp env e)
       SDecls t x:xs -> execStms (addVar env x) (SDecls t xs)
       SDecls t []   -> return env
-      SInit _ x e   -> return setVar (addVar env x) x (evalExp env e)
-      SReturn e     -> return (evalExp env e) --how to actualy "return" e? (along with env)
-      SWhile eCon s -> --do env' <- (evalExp env eCon) FEL för evalExp returnerar inte env
-                       case (evalExp env' eCon)  of
+      SInit _ x e   -> return setVar (addVar env x) x (fst . evalExp env e)
+      SReturn e     -> return (fst . evalExp env e) --what about returning the vaue?
+      SWhile eCon s -> do env' <- (fst . evalExp env eCon)
+                       case (snd . evalExp env' eCon)  of
                          False -> return env'
                          _     -> do env'' <- (execStm env' s)
                                      execStm env'' (SWhile eCon s)
       SBlock stms   -> do env' <- execStms (enterScope env) stms
                           return $ leaveScope env'
-      SIfElse eCon sI sE -> case (evalExp env eCon) of --side effects on conditional!include new env!!
-                              True -> execStm env sI
-                              _    -> execStm env eE
+      SIfElse eCon sI sE -> case (evalExp env eCon) of
+                              (env', True) -> execStm env' sI
+                              (env', _ )   -> execStm env' eE
 
---FST OCH SND!
---What about side effects? eval av exp har det i boken, vi borde väl returnera env också
-evalExp :: Env -> Exp -> HALL??!!!ÅÅ???!--(Env, Value)
+evalExp :: Env -> Exp -> (Env, Value)
 evalExp env e = 
     case e of
-      --EVar x         -> lookupVar env x
+      --ETrue
+      --EFalse
       EInt i         -> VInt i
       EDouble d      -> VDouble d
-      --EAdd e1 e2     -> let v1 = evalExp env e1
-      --                      v2 = evalExp env e2
-      --                   in case (v1,v2) of
-      --                        (VInt i1, VInt i2)       -> VInt (i1+i2)
-      --                        (VDouble d1, VDouble d2) -> VDouble (d1+d2)
+      EId x          -> lookupVar env x
+      --EApp
+      --EPostIncr
+      --EPostDecr
+      --EPreIncr
+      --EPreDecr
+      --ETimes
+      --EDiv
+      EPlus e1 e2     -> let v1 = evalExp env e1
+                            v2 = evalExp env e2
+                         in case (v1,v2) of
+                              (VInt i1, VInt i2)       -> VInt (i1+i2)
+                              (VDouble d1, VDouble d2) -> VDouble (d1+d2)
+      --EMinus
+      --ELt
+      --EGt
+      --ELtEq
+      --EGtEq
+      --EEq
+      --ENEq
+      --EAnd
+      --EOr
+      --EAss
 
 starterEnv :: Env
 starterEnv = (starterSig, [])
@@ -140,5 +155,3 @@ enterScope (sigs, scopes) = (sigs, (Map.empty):scopes)
 
 leaveScope :: Env -> Env
 leaveScope (sigs, (_:scopes)) = (sigs, scopes)
-
--}
