@@ -15,13 +15,17 @@ type Context = Map Id Type
 
 typecheck :: Program -> Err ()
 typecheck (PDefs defs) =
-  checkDefs (addDefs starterSig defs, [Map.empty]) defs
+    case addDefs starterSig defs of
+        Bad err -> fail err
+        Ok sig  -> checkDefs (sig, [Map.empty]) defs
 
 -- This function initializes the signature symbol table
-addDefs :: Sig -> [Def] -> Sig
-addDefs sigs []                         = sigs
+addDefs :: Sig -> [Def] -> Err Sig
+addDefs sigs []                         = return sigs
 addDefs sigs ( (DFun t f args _):funs ) =
-    addDefs (Map.insert f ((reverse (enlistTypes [] args)), t) sigs) funs
+    case Map.lookup f sigs of 
+      _       -> fail ("function " ++ printTree f ++ " already declared.")
+      Nothing -> addDefs (Map.insert f ((reverse (enlistTypes [] args)), t) sigs) funs
 
 enlistTypes :: [Type] -> [Arg] -> [Type]
 enlistTypes list []               = list
