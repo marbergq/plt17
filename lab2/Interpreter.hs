@@ -61,14 +61,23 @@ execStms env (st:stms) = do env' <- execStm env st
 execStm :: Env -> Stm -> IO Env
 execStm env s = 
     case s of
-      SDecl _ x       -> return (addVar env x)
-      SAss x e        -> return (setVar env x (evalExp env e))
-      SBlock stms     -> do env' <- execStms (enterScope env) stms
-                            return env'
-                            --return (leaveScope env')
-      SPrint e        -> do print (evalExp env e)
-                            return env
+      SExp e        -> return (evalExp env e)
+      SDecls t x:xs -> execStms (addVar env x) (SDecls t xs)
+      SDecls t []   -> return env
+      SInit _ x e   -> return setVar (addVar env x) x (evalExp env e)
+      SReturn e     -> return (evalExp env e) --how to actualy "return" e? (along with env)
+      SWhile eCon s -> --do env' <- (evalExp env eCon) FEL för evalExp returnerar inte env
+                       case (evalExp env' eCon)  of
+                         False -> return env'
+                         _     -> do env'' <- (execStm env' s)
+                                     execStm env'' (SWhile eCon s)
+      SBlock stms   -> do env' <- execStms (enterScope env) stms
+                                  return env'
+      SIfElse eCon sI sE -> case (evalExp env eCon) of --side effects on conditional!include new env!!
+                              True -> execStm env sI
+                              _    -> execStm env eE
 
+--What about side effects? eval av exp har det i boken, vi borde väl returnera env också
 evalExp :: Env -> Exp -> Value
 evalExp env e = 
     case e of
@@ -105,11 +114,9 @@ addVar (sigs, (scope:rest)) x = (sigs, ((Map.insert x VUndef scope):rest))
 
 setVar :: Env -> Id -> Value -> Env
 setVar (_, []) x _ = error $ "Unknown variable " ++ printTree x ++ "."
-
 -- This case is probably not needed when we use Data.Map
 -- setVar (sigs, ((Map.empty):rest)) x v = let (sigs', rest') = setVar (sigs, rest) x v
 --                                           in (sigs', (Map.empty):rest')
-
 -- The current context is not empty -> look for the variable and update if found.
 setVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
     Just _  -> (sigs, (Map.insert x v scope):rest)
