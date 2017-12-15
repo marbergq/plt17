@@ -2,7 +2,7 @@ module Interpreter where
 
 import Control.Monad
 --import System.Environment (getArgs)
---import System.Exit (exitFailure)
+import System.Exit (exitFailure)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -10,7 +10,7 @@ import qualified Data.Map as Map
 import CPP.Abs
 import CPP.Print
 import CPP.ErrM
--- possylby these two as well
+-- possylby these two as well:
 import CPP.Lex
 import CPP.Par
 
@@ -29,30 +29,19 @@ type Context = Map Id Value
 
 --DOES NOT HAVE RETURN TYPE FOR ERRORS
 interpret :: Program -> IO ()
-interpret (PDefs defs) = putStrLn "No interpreter"
---interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs) 
---                         --                (Id "main")) of 
---                         --       (DFun VVoid f [] stms) -> do 
---                         --                           execStms env stms
---                         --                           return ()
---                         --       (DFun _ _ _ _)      -> fail $ "Error in main function. Either a nonempty argument list or return type is not void. "
---                         --       error s                -> fail $ "Program missing main function" ++ s 
---                         do env <- return (addDefs starterEnv defs)
---                            (DFun t f _ stms) <- return
---                                                (lookupFun env (Id "main"))
---                            execStms (enterScope env) stms
---                            return ()
+interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs) 
+                         --                (Id "main")) of 
+                         --       (DFun VVoid f [] stms) -> do 
+                         --                           execStms env stms
+                         --                           return ()
+                         --       (DFun _ _ _ _)      -> fail $ "Error in main function. Either a nonempty argument list or return type is not void. "
+                         --       error s                -> fail $ "Program missing main function" ++ s 
+                         do env <- return (addDefs starterEnv defs)
+                            (DFun t f _ stms) <- return
+                                                (lookupFun env (Id "main"))
+                            execStms env stms
+                            return ()
 
--- What if two functions have the same name???
--- shouldn't that be handeled in the type checker?
-addDefs :: Env -> [Def] -> Env
-addDefs env [] = env
-addDefs (sigs, scopes) (def@(DFun _ f _ _):defs) =
-    addDefs ((Map.insert f def sigs), scopes) defs
-
---kallas bara på för en lista av stms,
---vilka bara finns i funktionernas block of stms eller i ett stmt block
---därför alltid leaveScope
 execStms :: Env -> [Stm] -> IO Env
 execStms env [] = return env
 execStms env (st:stms) = do env' <- execStm env st
@@ -71,24 +60,30 @@ execStm env s =
       SWhile eCon s   -> do 
                             if (val == False)
                                then return env'
-                               else do env'' <- (execStm env' s)
+                               else do env'' <- (execStm env' s) --enterScope?
                                        execStm env'' (SWhile eCon s)
                             where (env', VBool val) = (evalExp env eCon)
       SBlock stms     -> do env' <- execStms (enterScope env) stms
                             return (leaveScope env')
       SIfElse eCon sI sE -> case (evalExp env eCon) of
-                              (env', VBool True) -> execStm env' sI
-                              (env', _ )   -> execStm env' sE
+                              (env', VBool True) -> execStm env' sI --enterScope?
+                              (env', _ )   -> execStm env' sE --enterScope?
 
-evalExp :: Env -> Exp -> (Env, Value)
+evalExp :: Env -> Exp -> IO (Env, Value)
 evalExp env e = 
     case e of
       --ETrue
       --EFalse
-      EInt i         -> (env, VInt i)
-      EDouble d      -> (env, VDouble d)
-      EId x          -> (env, lookupVar env x)
-      --EApp
+      EInt i         -> return (env, VInt i)
+      EDouble d      -> return (env, VDouble d)
+      EId x          -> return (env, lookupVar env x)
+      EApp f xs      -> do (_ _ args stms) <- lookupFun env f
+                           env' <- last . map $ (addVar (enterScope env)) (map snd args)
+                           env'' <- execStms env' stms
+                           return (leaveScope env'', VVoid) --vilket väre ska funktionsanrop retunera? t i argumentlistan. beror på.. 
+                        --kodskiss som nog inte fungerar i praktiken
+                        --men i teorin typ, bara syntaxfel tror jag /m
+                        
       --EPostIncr
       --EPostDecr
       --EPreIncr
@@ -98,8 +93,8 @@ evalExp env e =
       EPlus e1 e2     -> let v1 = snd $ evalExp env e1
                              v2 = snd $ evalExp env e2
                          in case (v1,v2) of
-                              (VInt i1, VInt i2)       -> (env, VInt (i1+i2) )
-                              (VDouble d1, VDouble d2) -> (env, VDouble (d1+d2) )
+                              (VInt i1, VInt i2)       -> return (env, VInt (i1+i2) )
+                              (VDouble d1, VDouble d2) -> return (env, VDouble (d1+d2) )
       --EMinus
       --ELt
       --EGt
@@ -110,6 +105,11 @@ evalExp env e =
       --EAnd
       --EOr
       --EAss
+
+addDefs :: Env -> [Def] -> Env
+addDefs env [] = env
+addDefs (sigs, scopes) (def@(DFun _ f _ _):defs) =
+    addDefs ((Map.insert f def sigs), scopes) defs
 
 starterEnv :: Env
 starterEnv = (starterSig, [])
@@ -127,6 +127,8 @@ starterSig = Map.empty
 
 addVar :: Env -> Id -> Env
 -- Add functionality to add multiple variables???
+-- No, we use th map function for that: map addVar over a list of args will add them all :D
+-- on second thought, yes, some faster algorithm is in place.
 -- If a variable already has been declared this error is caught by the type checker
 addVar (sigs, (scope:rest)) x = (sigs, ((Map.insert x VUndef scope):rest))
 
