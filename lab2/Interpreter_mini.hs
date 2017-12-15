@@ -45,36 +45,42 @@ execStms env (st:stms) = do env' <- execStm env st
 execStm :: Env -> Stm -> IO Env
 execStm env s = 
     case s of
-      SExp e          -> do evalExp env e
-                            return env
+      SExp e          -> do (env', _) <- evalExp env e
+                            return env'
       SDecl _ x       -> return (addVar env x)
-      SAss x e        -> return (setVar env x (evalExp env e))
+      SAss x e        -> do (env', val) <- evalExp env e
+                            return (setVar env' x val)
       SBlock stms     -> do env' <- execStms (enterScope env) stms
                             return (leaveScope env')
-      SPrint e        -> do print (evalExp env e)
-                            return env
+      SPrint e        -> do (env', val) <- evalExp env e
+                            print val
+                            return env'
 
-evalExp :: Env -> Exp -> Value
+evalExp :: Env -> Exp -> IO (Env, Value)
 evalExp env e = 
     case e of
-      EVar x         -> lookupVar env x
-      EInt i         -> VInt i
-      EDouble d      -> VDouble d
-      EAdd e1 e2     -> let v1 = evalExp env e1
-                            v2 = evalExp env e2
-                         in case (v1,v2) of
-                              (VInt i1, VInt i2)       -> VInt (i1+i2)
-                              (VDouble d1, VDouble d2) -> VDouble (d1+d2)
+      EVar x         -> return (env, lookupVar env x)
+      EInt i         -> return (env, VInt i)
+      EDouble d      -> return (env, VDouble d)
+      EAdd e1 e2     -> do (_, v1) <- evalExp env e1
+                           (_, v2) <- evalExp env e2
+                           case (v1,v2) of
+                              (VInt i1, VInt i2)       -> return (env, VInt (i1+i2))
+                              (VDouble d1, VDouble d2) -> return (env, VDouble (d1+d2))
       -- Pseudocode
       EApp f es      -> do (DFun _ f args stms) <- return (lookupFun env f)
-                           -- evaluate expressions es
-                           env' <- enterScope env
-                           (setVar (addVar env' ) x (evalExp env e))
-                           env2 <- execStms env'' stms
-                           leaveScope env2
+                           env' <- loadArgs (enterScope env) env es args
+                           env'' <- execStms env' stms
+                           return ((leaveScope env''), VVoid)
+
+loadArgs :: Env -> Env -> [Exp] -> [Arg] -> IO Env
+loadArgs env env' [] [] = return env
+loadArgs env env' (e:es) ((ADecl _ x):args) = do
+  (env'', v) <- evalExp env' e
+  loadArgs (setVar (addVar env x) x v) env'' es args
 
 starterEnv :: Env
-starterEnv = (starterSig, [])
+starterEnv = (starterSig, [Map.empty])
 
 starterSig :: Sig
 starterSig = Map.empty
@@ -84,6 +90,8 @@ addVar :: Env -> Id -> Env
 -- Add functionality to add multiple variables???
 -- If a variable already has been declared this error is caught by the type checker
 addVar (sigs, (scope:rest)) x = (sigs, ((Map.insert x VUndef scope):rest))
+-- In case there is only one scope
+addVar (sigs, scope) x = (sigs, [(Map.insert x VUndef (head scope))])
 
 setVar :: Env -> Id -> Value -> Env
 setVar (_, []) x _ = error $ "Unknown variable " ++ printTree x ++ "."
