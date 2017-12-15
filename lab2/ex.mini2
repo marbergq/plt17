@@ -1,0 +1,12 @@
+void fun1(int a) {
+    int x ;
+    x = 6 ;
+    int y ;
+    y = x + a ;
+    print y ;
+}
+void main() {
+    int b ;
+    b = 4 ;
+    fun1(b) ;
+}
