@@ -2,6 +2,7 @@ module Interpreter where
 
 import Control.Monad
 --import System.Environment (getArgs)
+-- Possibly this one too:
 import System.Exit (exitFailure)
 
 import Data.Map (Map)
@@ -43,29 +44,31 @@ interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs)
                             return ()
 
 execStms :: Env -> [Stm] -> IO (Env, Value)
-execStms env [] = return (env, VVoid void) --NOT VOID ALWAYS
+execStms env [] = return (env, VVoid) --NOT VOID ALWAYS
 execStms env (st:stms) = do (env', val) <- execStm env st
                             execStms env' stms
 
 execStm :: Env -> Stm -> IO (Env, Value)
 execStm env s = 
     case s of
-      SExp e          -> return $ evalExp env e
+      SExp e          -> evalExp env e
       SDecls _ []     -> return (env, VVoid)
       SDecls t (x:xs) -> execStm (addVar env x) (SDecls t xs)
-      SInit _ x e     -> return (setVar (addVar env x) x (snd $ evalExp env e), VVoid )
-      SReturn e       -> return $ evalExp env e
-      SWhile eCon s   -> do (env', VBool val) <- (evalExp env eCon)
-                            if (val == False)
+      SInit _ x e     -> do (_, val) <- evalExp env e
+                            return (setVar (addVar env x) x val, VVoid )
+      SReturn e       -> evalExp env e --Hur avbryter vi all exekevering? 
+      SWhile eCon s   -> do (env', VBool b) <- evalExp env eCon
+                            if (b == False)
                                then return (env', VVoid)
-                               else do (env'', _)<- (execStm env' s)
+                               else do (env'', _) <- execStm env' s
                                        execStm env'' (SWhile eCon s)
       --enter scope in first iteration of while loop and exit scope after last iteration
-      SBlock stms     -> do env' <- execStms (enterScope env) stms
+      SBlock stms     -> do (env', _) <- execStms (enterScope env) stms
                             return (leaveScope env', VVoid)
-      SIfElse eCon sI sE -> case (evalExp env eCon) of
-                              (env', VBool True) -> execStm (enterScope env') sI
-                              (env', _ )   -> execStm (enterScope env') sE
+      SIfElse eCon sI sE -> do (env', VBool b) <- evalExp env eCon
+                               if (b == True)
+                                  then execStm (enterScope env') sI
+                                  else do execStm (enterScope env') sE
 
 evalExp :: Env -> Exp -> IO (Env, Value)
 evalExp env e = 
@@ -75,10 +78,10 @@ evalExp env e =
       EInt i         -> return (env, VInt i)
       EDouble d      -> return (env, VDouble d)
       EId x          -> return (env, lookupVar env x)
-      EApp f xs      -> do (_ _ args stms) <- lookupFun env f
-                           env' <- setArgs (enterScope env) args xs
+      EApp f xs      -> do env' <- setArgs (enterScope env) args xs
                            env'' <- execStms env' stms
                            return (leaveScope env', VVoid) 
+                           where (DFun t f args stms) = lookupFun env f 
                            --vilket vädre ska funktionsanrop retunera? (t,_) i args. 
                            --hur får man det från execStms?                        
       --EPostIncr
@@ -87,8 +90,8 @@ evalExp env e =
       --EPreDecr
       --ETimes
       --EDiv
-      EPlus e1 e2     -> do v1 <- snd $ evalExp env e1
-                            v2 <- snd $ evalExp env e2
+      EPlus e1 e2     -> do (_, v1) <- evalExp env e1
+                            (_, v2) <- evalExp env e2
                             case (v1,v2) of
                               (VInt i1, VInt i2)       -> return (env, VInt (i1+i2) )
                               (VDouble d1, VDouble d2) -> return (env, VDouble (d1+d2) )
@@ -121,10 +124,12 @@ starterSig = Map.empty
 --             --Map.insert (Id "readDouble") ([], Type_bool) 
 --             (Map.empty)
 
-
 addVar :: Env -> Id -> Env
 addVar (sigs, (scope:rest)) x = (sigs, ((Map.insert x VUndef scope):rest))
+--kanske checka att var:en inte redan är deklareread?
+--titta på lösningen i addSetVar 
 
+-- DOES NOT HAVE RETURN TYPE FOR ERRORS
 setVar :: Env -> Id -> Value -> Env
 setVar (_, []) x _ = error $ "Unknown variable " ++ printTree x ++ "."
 -- This case is probably not needed when we use Data.Map
@@ -136,15 +141,25 @@ setVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
     Nothing -> let (sigs', rest') = setVar (sigs, rest) x v
                 in (sigs', scope:rest')
 
+addSetVar :: Env -> Id -> Value -> Env
+addSetVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
+    Just _  -> error $ "Variable " ++ printTree x ++ "already declared"
+    Nothing -> (sigs, (Map.insert x v scope):rest)
+
+-- DOES NOT HAVE RETURN TYPE FOR ERRORS
 setArgs :: Env -> [Arg] -> [Exp] -> IO Env
 setArgs env [] [] = return env
-setArgs env (ADecl arg):args x:xs = 
-    case evalExp env x of
-       Just (_, val) -> setArgs $ env' (setVar env (snd arg) val) xs
-       _ -> error "wrong function parameter"
---setArgs env _ _ = error "function not applied to right amount of arguments"
--- or is this covered in type checker? 
+setArgs env ((ADecl t a):args) (x:xs) = 
+    do (_, val) <- evalExp env x
+       setArgs (addSetVar env a val) args xs
+    --minns inte varför jag tyckte vi borde gjort så här:
+    --case evalExp env x of
+    --   Just (_, val) -> setArgs $ env' (setVar env a val) xs
+    --   _             -> error "wrong function parameter"
+--setArgs env _ _ = error "function applied to wrong amount of arguments"
+-- or is this part of the type checker? 
 
+-- DOES NOT HAVE RETURN TYPE FOR ERRORS
 lookupVar :: Env -> Id -> Value
 lookupVar (_, []) x = error $ "Uninitialized variable " ++ printTree x ++ "."
 lookupVar (sigs, (scope:rest)) x = case Map.lookup x scope of
