@@ -42,32 +42,30 @@ interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs)
                             execStms env stms
                             return ()
 
-execStms :: Env -> [Stm] -> IO Env
-execStms env [] = return env
-execStms env (st:stms) = do env' <- execStm env st
+execStms :: Env -> [Stm] -> IO (Env, Value)
+execStms env [] = return (env, VVoid void) --NOT VOID ALWAYS
+execStms env (st:stms) = do (env', val) <- execStm env st
                             execStms env' stms
 
-execStm :: Env -> Stm -> IO Env
+execStm :: Env -> Stm -> IO (Env, Value)
 execStm env s = 
     case s of
-      SExp e          -> return (fst $ evalExp env e)
+      SExp e          -> return $ evalExp env e
+      SDecls _ []     -> return (env, VVoid)
       SDecls t (x:xs) -> execStm (addVar env x) (SDecls t xs)
-      SDecls _ []     -> return env
-      SInit _ x e     -> return ( setVar (addVar env x) x 
-                                         (snd $ evalExp env e) )
-      SReturn e       -> return ( fst $ evalExp env e ) 
-                         --what about returning the vaue?
-      SWhile eCon s   -> do 
+      SInit _ x e     -> return (setVar (addVar env x) x (snd $ evalExp env e), VVoid )
+      SReturn e       -> return $ evalExp env e
+      SWhile eCon s   -> do (env', VBool val) <- (evalExp env eCon)
                             if (val == False)
-                               then return env'
-                               else do env'' <- (execStm env' s) --enterScope?
+                               then return (env', VVoid)
+                               else do (env'', _)<- (execStm env' s)
                                        execStm env'' (SWhile eCon s)
-                            where (env', VBool val) = (evalExp env eCon)
+      --enter scope in first iteration of while loop and exit scope after last iteration
       SBlock stms     -> do env' <- execStms (enterScope env) stms
-                            return (leaveScope env')
+                            return (leaveScope env', VVoid)
       SIfElse eCon sI sE -> case (evalExp env eCon) of
-                              (env', VBool True) -> execStm env' sI --enterScope?
-                              (env', _ )   -> execStm env' sE --enterScope?
+                              (env', VBool True) -> execStm (enterScope env') sI
+                              (env', _ )   -> execStm (enterScope env') sE
 
 evalExp :: Env -> Exp -> IO (Env, Value)
 evalExp env e = 
@@ -78,21 +76,20 @@ evalExp env e =
       EDouble d      -> return (env, VDouble d)
       EId x          -> return (env, lookupVar env x)
       EApp f xs      -> do (_ _ args stms) <- lookupFun env f
-                           env' <- last . map $ (addVar (enterScope env)) (map snd args)
+                           env' <- setArgs (enterScope env) args xs
                            env'' <- execStms env' stms
-                           return (leaveScope env'', VVoid) --vilket väre ska funktionsanrop retunera? t i argumentlistan. beror på.. 
-                        --kodskiss som nog inte fungerar i praktiken
-                        --men i teorin typ, bara syntaxfel tror jag /m
-                        
+                           return (leaveScope env', VVoid) 
+                           --vilket vädre ska funktionsanrop retunera? (t,_) i args. 
+                           --hur får man det från execStms?                        
       --EPostIncr
       --EPostDecr
       --EPreIncr
       --EPreDecr
       --ETimes
       --EDiv
-      EPlus e1 e2     -> let v1 = snd $ evalExp env e1
-                             v2 = snd $ evalExp env e2
-                         in case (v1,v2) of
+      EPlus e1 e2     -> do v1 <- snd $ evalExp env e1
+                            v2 <- snd $ evalExp env e2
+                            case (v1,v2) of
                               (VInt i1, VInt i2)       -> return (env, VInt (i1+i2) )
                               (VDouble d1, VDouble d2) -> return (env, VDouble (d1+d2) )
       --EMinus
@@ -112,7 +109,7 @@ addDefs (sigs, scopes) (def@(DFun _ f _ _):defs) =
     addDefs ((Map.insert f def sigs), scopes) defs
 
 starterEnv :: Env
-starterEnv = (starterSig, [])
+starterEnv = (starterSig, [Map.empty])
 
 starterSig :: Sig
 starterSig = Map.empty
@@ -126,10 +123,6 @@ starterSig = Map.empty
 
 
 addVar :: Env -> Id -> Env
--- Add functionality to add multiple variables???
--- No, we use th map function for that: map addVar over a list of args will add them all :D
--- on second thought, yes, some faster algorithm is in place.
--- If a variable already has been declared this error is caught by the type checker
 addVar (sigs, (scope:rest)) x = (sigs, ((Map.insert x VUndef scope):rest))
 
 setVar :: Env -> Id -> Value -> Env
@@ -142,6 +135,15 @@ setVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
     Just _  -> (sigs, (Map.insert x v scope):rest)
     Nothing -> let (sigs', rest') = setVar (sigs, rest) x v
                 in (sigs', scope:rest')
+
+setArgs :: Env -> [Arg] -> [Exp] -> IO Env
+setArgs env [] [] = return env
+setArgs env (ADecl arg):args x:xs = 
+    case evalExp env x of
+       Just (_, val) -> setArgs $ env' (setVar env (snd arg) val) xs
+       _ -> error "wrong function parameter"
+--setArgs env _ _ = error "function not applied to right amount of arguments"
+-- or is this covered in type checker? 
 
 lookupVar :: Env -> Id -> Value
 lookupVar (_, []) x = error $ "Uninitialized variable " ++ printTree x ++ "."
