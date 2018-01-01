@@ -11,7 +11,7 @@ import qualified Data.Map as Map
 import CPP.Abs
 import CPP.Print
 import CPP.ErrM
--- possylby these two as well:
+-- possibly these two as well:
 import CPP.Lex
 import CPP.Par
 
@@ -43,10 +43,31 @@ interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs)
                             execStms env stms
                             return ()
 
+{-
+The variable ret_val' is used when interpreting return statements SReturn.
+
+Everytime an EApp (function call) expression is encountered a new scope is
+added to the environment and to this new scope a variable with identifier
+ret_val' is added.
+
+The value of ret_val' is VUndef until the first return statement is encountered.
+
+It is always correct to change the value of the outermost ret_val' variable
+found in the environment since any return statement is associated with the
+closest function call.
+
+The identifier ret_val' can be used because the character ' cannot be used in
+the language we're interpreting. No name clashes will occur.
+-}
+
 execStms :: Env -> [Stm] -> IO (Env, Value)
-execStms env [] = return (env, VVoid) --NOT VOID ALWAYS
-execStms env (st:stms) = do (env', val) <- execStm env st
-                            execStms env' stms
+execStms env [] = return (env, VVoid)
+-- If a return statement has been encountered as the previous statement then
+-- don't execute the following statements st and stms.
+execStms env (st:stms) = case lookupVar env (Id "ret_val'") of
+                           VUndef -> do (env', val) <- execStm env st
+                                        execStms env' stms
+                           val    -> return (env, val)
 
 execStm :: Env -> Stm -> IO (Env, Value)
 execStm env s = 
@@ -54,9 +75,18 @@ execStm env s =
       SExp e          -> evalExp env e
       SDecls _ []     -> return (env, VVoid)
       SDecls t (x:xs) -> execStm (addVar env x) (SDecls t xs)
-      SInit _ x e     -> do (_, val) <- evalExp env e
-                            return (setVar (addVar env x) x val, VVoid )
-      SReturn e       -> evalExp env e --Hur avbryter vi all exekevering? 
+
+      -- Change: Pass env' (output from evalExp) to addVar according to rule in
+      -- the PLT textbook. /Johan
+      SInit _ x e     -> do (env', val) <- evalExp env e
+                            return (setVar (addVar env' x) x val, VVoid)
+      
+      -- Encountering SReturn changes the variable ret_val' from VUndef to the
+      -- value of expression e.
+      -- ret_val' with a defined value is caught by the function execStms by
+      -- pattern matching /Johan
+      SReturn e       -> return $ setVar env (Id "ret_val'") (evalExp env e)
+
       SWhile eCon s   -> do (env', VBool b) <- evalExp env eCon
                             if (b == False)
                                then return (env', VVoid)
@@ -73,17 +103,23 @@ execStm env s =
 evalExp :: Env -> Exp -> IO (Env, Value)
 evalExp env e = 
     case e of
-      --ETrue
-      --EFalse
+      -- Maybe "true"/"false" is needed after ETrue/EFalse or just _ /Johan
+      ETrue          -> return (env, VBool True)
+      EFalse         -> return (env VBool False)
       EInt i         -> return (env, VInt i)
       EDouble d      -> return (env, VDouble d)
       EId x          -> return (env, lookupVar env x)
-      EApp f xs      -> do env' <- setArgs (enterScope env) args xs
+      EApp f xs      -> do (_ _ args stms) <- lookupFun env f
+                           -- Create variable ret_val' (description above). /Johan
+                           env' <- setArgs (addVar (enterScope env) (Id "ret_val'")) args xs
                            env'' <- execStms env' stms
                            return (leaveScope env', VVoid) 
                            where (DFun t f args stms) = lookupFun env f 
                            --vilket vädre ska funktionsanrop retunera? (t,_) i args. 
                            --hur får man det från execStms?                        
+      -- The four built-in functions can be hard coded as special cases of EApp
+      -- in this function evalExp (according to labPM).
+
       --EPostIncr
       --EPostDecr
       --EPreIncr
@@ -125,9 +161,11 @@ starterSig = Map.empty
 --             (Map.empty)
 
 addVar :: Env -> Id -> Env
-addVar (sigs, (scope:rest)) x = (sigs, ((Map.insert x VUndef scope):rest))
---kanske checka att var:en inte redan är deklareread?
---titta på lösningen i addSetVar 
+-- I implemented the solution from addSetVar to check if the variable is already
+-- declared. /Johan
+addVar (sigs, (scope:rest)) id = case Map.lookup id scope of 
+    Just _  -> "Variable " ++ printTree id ++ " already declared"
+    Nothing -> (sigs, ((Map.insert id VUndef scope):rest))
 
 -- DOES NOT HAVE RETURN TYPE FOR ERRORS
 setVar :: Env -> Id -> Value -> Env
@@ -143,8 +181,8 @@ setVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
 
 addSetVar :: Env -> Id -> Value -> Env
 addSetVar (sigs, (scope:rest)) x v = case Map.lookup x scope of
-    Just _  -> error $ "Variable " ++ printTree x ++ "already declared"
-    Nothing -> (sigs, (Map.insert x v scope):rest)
+    Just _  -> error $ "Variable " ++ printTree x ++ " already declared"
+    Nothing -> (sigs, ((Map.insert x v scope):rest))
 
 -- DOES NOT HAVE RETURN TYPE FOR ERRORS
 setArgs :: Env -> [Arg] -> [Exp] -> IO Env
@@ -160,6 +198,7 @@ setArgs env ((ADecl t a):args) (x:xs) =
 -- or is this part of the type checker? 
 
 -- DOES NOT HAVE RETURN TYPE FOR ERRORS
+-- lookupVar can output the value VUndef.
 lookupVar :: Env -> Id -> Value
 lookupVar (_, []) x = error $ "Uninitialized variable " ++ printTree x ++ "."
 lookupVar (sigs, (scope:rest)) x = case Map.lookup x scope of

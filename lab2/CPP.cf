@@ -16,49 +16,49 @@ SExp.    Stm ::= Exp ";" ;
 SDecls.  Stm ::= Type [Id] ";" ;
 SInit.   Stm ::= Type Id "=" Exp ";" ;
 SReturn. Stm ::= "return" Exp ";" ;
-SWhile.  Stm ::= "while" "(" Exp ")" Stm ;
+--SWhile.  Stm ::= "while" "(" Exp ")" Stm ;
 SBlock.  Stm ::= "{" [Stm] "}" ;
-SIfElse. Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
+--SIfElse. Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
 
 terminator Stm "" ;
 
 -- Expressions
 
-ETrue.     Exp15  ::= "true" ;
-EFalse.    Exp15  ::= "false" ;
+--ETrue.     Exp15  ::= "true" ;
+--EFalse.    Exp15  ::= "false" ;
 EInt.      Exp15  ::= Integer ;
 EDouble.   Exp15  ::= Double ;
 EId.       Exp15  ::= Id ;
 
 EApp.      Exp14  ::= Id "(" [Exp] ")" ;  -- Restricted to Id.
 
-EPostIncr. Exp14  ::= Id "++" ;        -- Restricted to Id.
-EPostDecr. Exp14  ::= Id "--" ;        -- Restricted to Id.
+--EPostIncr. Exp14  ::= Id "++" ;        -- Restricted to Id.
+--EPostDecr. Exp14  ::= Id "--" ;        -- Restricted to Id.
+--
+--EPreIncr.  Exp13  ::= "++" Id ;        -- Restricted to Id.
+--EPreDecr.  Exp13  ::= "--" Id ;        -- Restricted to Id.
 
-EPreIncr.  Exp13  ::= "++" Id ;        -- Restricted to Id.
-EPreDecr.  Exp13  ::= "--" Id ;        -- Restricted to Id.
-
-ETimes.    Exp12  ::= Exp12 "*"  Exp13 ;  -- Left assoc.
-EDiv.      Exp12  ::= Exp12 "/"  Exp13 ;  -- Left assoc.
+--ETimes.    Exp12  ::= Exp12 "*"  Exp13 ;  -- Left assoc.
+--EDiv.      Exp12  ::= Exp12 "/"  Exp13 ;  -- Left assoc.
 
 EPlus.     Exp11  ::= Exp11 "+"  Exp12 ;  -- Left assoc.
-EMinus.    Exp11  ::= Exp11 "-"  Exp12 ;  -- Left assoc.
+--EMinus.    Exp11  ::= Exp11 "-"  Exp12 ;  -- Left assoc.
 
 -- Removed 10: bit shift
 
-ELt.       Exp9   ::= Exp10 "<"  Exp10 ;  -- Non-assoc.
-EGt.       Exp9   ::= Exp10 ">"  Exp10 ;  -- Non-assoc.
-ELtEq.     Exp9   ::= Exp10 "<=" Exp10 ;  -- Non-assoc.
-EGtEq.     Exp9   ::= Exp10 ">=" Exp10 ;  -- Non-assoc.
+--ELt.       Exp9   ::= Exp10 "<"  Exp10 ;  -- Non-assoc.
+--EGt.       Exp9   ::= Exp10 ">"  Exp10 ;  -- Non-assoc.
+--ELtEq.     Exp9   ::= Exp10 "<=" Exp10 ;  -- Non-assoc.
+--EGtEq.     Exp9   ::= Exp10 ">=" Exp10 ;  -- Non-assoc.
 
-EEq.       Exp8   ::= Exp9  "==" Exp9  ;  -- Non-assoc.
-ENEq.      Exp8   ::= Exp9  "!=" Exp9  ;  -- Non-assoc.
+--EEq.       Exp8   ::= Exp9  "==" Exp9  ;  -- Non-assoc.
+--ENEq.      Exp8   ::= Exp9  "!=" Exp9  ;  -- Non-assoc.
 
 -- Removed 5-7: bit-wise operations
 
-EAnd.      Exp4   ::= Exp4  "&&" Exp5  ;  -- Left assoc.
+--EAnd.      Exp4   ::= Exp4  "&&" Exp5  ;  -- Left assoc.
 
-EOr.       Exp3   ::= Exp3  "||" Exp4  ;  -- Left assoc.
+--EOr.       Exp3   ::= Exp3  "||" Exp4  ;  -- Left assoc.
 
 EAss.      Exp2   ::= Id    "="  Exp2  ;  -- Right assoc.  Restricted to Id.
 
