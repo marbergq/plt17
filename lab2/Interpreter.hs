@@ -21,7 +21,7 @@ instance Show Value where
     show (VInt i)    = show i
     show (VDouble d) = show d
     show (VBool b)   = show b
-    show VVoid       = "void" -- is this correct?
+    show VVoid       = "void"
     show VUndef      = "undefined"
 
 type Env = (Sig,[Context])
@@ -135,7 +135,6 @@ evalExp env e =
                                                 env xs args
                  (_, val) <- execStms freshEnv stms
                  return (oldEnv', val) 
-
       EPostIncr x     -> case lookupVar env x of
                             VInt i    -> return (setVar env x (VInt (i+1))   , VInt i)
                             VDouble d -> return (setVar env x (VDouble (d+1)), VDouble d)
@@ -148,34 +147,39 @@ evalExp env e =
       EPreDecr x      -> case lookupVar env x of
                             VInt i    -> return (setVar env x (VInt (i-1))   , VInt (i-1))
                             VDouble d -> return (setVar env x (VDouble (d-1)), VDouble (d-1))
-      ETimes e1 e2    -> do (env', v1) <- evalExp env e1
-                            (env'', v2) <- evalExp env' e2
+      ETimes e1 e2    -> do (v1, v2, env'') <- twiceEval env e1 e2 
                             case (v1,v2) of
                               (VInt i1, VInt i2)       -> return (env'', VInt (i1 * i2) )
                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 * d2) ) 
-      EDiv e1 e2      -> do (env', v1) <- evalExp env e1
-                            (env'', v2) <- evalExp env' e2
+      EDiv e1 e2      -> do (v1, v2, env'') <- twiceEval env e1 e2
                             case (v1,v2) of
                               (VInt i1, VInt i2)       -> return (env'', VInt (i1 `div` i2 ) )
                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 / d2) ) 
                               --agreed both div and / has a sufficient error handling for division by zero
-      EPlus e1 e2     -> do (env', v1) <- evalExp env e1
-                            (env'', v2) <- evalExp env' e2
+      EPlus e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2
                             case (v1,v2) of
                               (VInt i1, VInt i2)       -> return (env'', VInt (i1+i2) )
                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1+d2) )
-      EMinus e1 e2    -> do (env', v1) <- evalExp env e1
-                            (env'', v2) <- evalExp env' e2
+      EMinus e1 e2    -> do (v1, v2, env'') <- twiceEval env e1 e2
                             case (v1,v2) of
                               (VInt i1, VInt i2)       -> return (env'', VInt (i1-i2) )
                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1-d2) )
-      --ELt
-      --EGt
-      --ELtEq
-      --EGtEq
-      --EEq
-      --ENEq
-      --EAnd
+      ELt e1 e2       -> do (v1, v2, env'') <- twiceEval env e1 e2
+                            return (env'', VBool (compareVal v1 v2 "<" ))
+      EGt e1 e2       -> do (v1, v2, env'') <- twiceEval env e1 e2
+                            return (env'', VBool (compareVal v1 v2 ">" ))
+      ELtEq e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2
+                            return (env'', VBool (compareVal v1 v2 "<=" ))
+      EGtEq e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2
+                            return (env'', VBool (compareVal v1 v2 ">=" ))
+      EEq e1 e2       -> do (v1, v2, env'') <- twiceEval env e1 e2
+                            return (env'', VBool (compareVal v1 v2 "==" ))
+      ENEq e1 e2      -> do (v1, v2, env'') <- twiceEval env e1 e2
+                            return (env'', VBool (compareVal v1 v2 "/=" ))
+      EAnd e1 e2      -> do (env', val) <- evalExp env e1
+                            case val of
+                              VBool True -> evalExp env' e2
+                              _          -> return (env', val)
       EOr e1 e2       -> do (env', VBool v1) <- evalExp env e1
                             if (v1 == True)
                               then return (env', VBool v1)
@@ -183,6 +187,49 @@ evalExp env e =
                                       return (env'', v2)
       EAss id e       -> do (env', val) <- evalExp env e
                             return ((setVar env' id val), val)
+
+twiceEval :: Env -> Exp -> Exp -> IO (Value, Value, Env)
+twiceEval env e1 e2 = do (env', v1) <- evalExp env e1
+                         (env'', v2) <- evalExp env' e2
+                         return (v1, v2, env'')
+
+compareVal :: Value -> Value -> String -> Bool
+compareVal v1 v2 op =
+  case v1 of 
+    VInt i1 -> case v2 of 
+      VInt i2 -> intApplyBinary i1 i2 op
+    VDouble d1 -> case v2 of 
+      VDouble d2 -> doubleApplyBinary d1 d2 op
+    VBool b1 -> case v2 of
+      VBool b2 -> boolApplyBinary b1 b2 op
+
+--Not sure how to polymorficly decide int, double or bool. sorry for ugly code.
+intApplyBinary :: Integer -> Integer -> String -> Bool
+intApplyBinary i1 i2 op
+    | op == "<"  = i1 < i2
+    | op == ">"  = i1 > i2
+    | op == "<=" = i1 <= i2
+    | op == ">=" = i1 >= i2
+    | op == "==" = i1 == i2
+    | op == "/=" = i1 /= i2
+
+doubleApplyBinary :: Double -> Double -> String -> Bool
+doubleApplyBinary d1 d2 op
+    | op == "<"  = d1 < d2
+    | op == ">"  = d1 > d2
+    | op == "<=" = d1 <= d2
+    | op == ">=" = d1 >= d2
+    | op == "==" = d1 == d2
+    | op == "/=" = d1 /= d2
+
+boolApplyBinary :: Bool -> Bool -> String -> Bool
+boolApplyBinary b1 b2 op
+    | op == "<"  = b1 < b2
+    | op == ">"  = b1 > b2
+    | op == "<=" = b1 <= b2
+    | op == ">=" = b1 >= b2
+    | op == "==" = b1 == b2
+    | op == "/=" = b1 /= b2
 
 readInt :: IO Integer
 readInt = readLn
