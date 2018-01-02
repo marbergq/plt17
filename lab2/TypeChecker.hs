@@ -17,7 +17,14 @@ typecheck :: Program -> Err ()
 typecheck (PDefs defs) =
     case addDefs starterSig defs of
         Bad err -> fail err
-        Ok sig  -> checkDefs (sig, [Map.empty]) defs
+        Ok sigs  -> case Map.lookup (Id "main") sigs of
+          Just ([], Type_int) -> checkDefs (sigs, [Map.empty]) defs
+          Just ([], t) -> fail ("main function is not of type int. "
+                                ++ "The type is: " ++ show t)
+          Just (_, Type_int) -> fail "main function must have zero agruments."
+          Just _ -> fail ("main function is not of type int " ++
+                          "and has arguments (no arguments are allowed).")
+          Nothing -> fail $ "main function not found."
 
 -- This function initializes the signature symbol table
 addDefs :: Sig -> [Def] -> Err Sig
@@ -39,15 +46,17 @@ checkDefs env (def:defs) = case checkDef env def of
 
 checkDef :: Env -> Def -> Err ()
 checkDef env (DFun t f args stms) = case addArgs (addScope env) args of
-                                      Bad err -> fail ("In function " ++ (show f) ++ ": " ++ err)
-                                      Ok env' -> do checkStms env' stms f
-                                                    return ()
+  Bad err -> fail ("In function " ++ (show f) ++ ": " ++ err)
+  Ok env' -> do checkStms env' stms f
+                return ()
 
 addArgs :: Env -> [Arg] -> Err Env
 addArgs env [] = Ok env
-addArgs env ((ADecl t id):args) = case addVar env [id] t of
-                                    Bad err -> fail ("Variable declared twice in argument list. " ++ err)
-                                    Ok env' -> addArgs env' args
+addArgs env ((ADecl t id):args)
+  | t == Type_void = fail "Argument type must not be void."
+  | otherwise = case addVar env [id] t of
+      Bad err -> fail ("Variable declared twice in argument list. " ++ err)
+      Ok env' -> addArgs env' args
 
 --Statements
 checkStm :: Env -> Stm -> Id -> Err Env
@@ -55,12 +64,15 @@ checkStm env s fid =
     case s of
         SExp e          -> do inferExp env e
                               return env
-        SDecls t ids    -> addVar env ids t
+        SDecls t ids    -> case t of
+                              Type_void -> fail ("Declaration type is void: "
+                                                 ++ printTree t)
+                              _ -> addVar env ids t
         SInit t id e    -> case t of
-                                Type_void -> fail ("Initialization type is void: "
-                                                   ++ printTree t)
-                                _ -> do checkExp env e t
-                                        addVar env [id] t
+                              Type_void -> fail ("Initialization type is void: "
+                                                 ++ printTree t)
+                              _ -> do checkExp env e t
+                                      addVar env [id] t
         SReturn e       -> do t <- lookupFun env fid
                               checkExp env e (snd t)
                               return env
@@ -103,11 +115,17 @@ inferExp env e =
       EOr e1 e2      -> inferBinary [Type_bool] env e1 e2
       EAnd e1 e2     -> inferBinary [Type_bool] env e1 e2
       EEq e1 e2      -> inferBinary [Type_int, Type_double, Type_bool] env e1 e2
+                        >> return Type_bool
       ENEq e1 e2     -> inferBinary [Type_int, Type_double, Type_bool] env e1 e2
+                        >> return Type_bool
       ELt e1 e2      -> inferBinary [Type_int, Type_double] env e1 e2
+                        >> return Type_bool
       EGt e1 e2      -> inferBinary [Type_int, Type_double] env e1 e2
+                        >> return Type_bool
       ELtEq e1 e2    -> inferBinary [Type_int, Type_double] env e1 e2
+                        >> return Type_bool
       EGtEq e1 e2    -> inferBinary [Type_int, Type_double] env e1 e2
+                        >> return Type_bool
       EPostIncr x    -> do t <- lookupVar env x
                            if elem t [Type_int, Type_double]
                             then return t

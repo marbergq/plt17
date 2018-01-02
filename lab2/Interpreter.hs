@@ -38,8 +38,8 @@ interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs)
                          --       error s                -> fail $ "Program missing main function" ++ s 
                          do env <- return (addDefs starterEnv defs)
                             (DFun t f _ stms) <- return
-                                                (lookupFun env (Id "main"))
-                            execStms env stms
+                                                  (lookupFun env (Id "main"))
+                            execStms (addVar env (Id "ret_val'")) stms
                             return ()
 
 {-
@@ -95,6 +95,7 @@ execStm env s =
                                            execStm (leaveScope env'') (SWhile eCon s)
       SBlock stms        -> do (env', _) <- execStms (enterScope env) stms
                                return (leaveScope env', VVoid)
+
       SIfElse eCon sI sE -> do (env', VBool b) <- evalExp env eCon
                                if (b == True)
                                   then case sI of
@@ -114,14 +115,26 @@ evalExp env e =
       EInt i         -> return (env, VInt i)
       EDouble d      -> return (env, VDouble d)
       EId id         -> return (env, lookupVar env id)
-      EApp f xs      -> do (DFun _ _ args stms) <- return (lookupFun env f)
-                           -- Create variable ret_val' (description above). /Johan
-                           (freshEnv, oldEnv') <- setArgs (addVar (enterScope env) (Id "ret_val'")) env xs args
-                           (_, val) <- execStms freshEnv stms
-                           return (oldEnv', val) 
-      -- The four built-in functions can be hard coded as special cases of EApp
-      -- in this function evalExp (according to labPM).
-      --agreed. /m
+
+      EApp f xs@(x:xr) -> case f of
+        Id "printInt"    -> do (env', val) <- evalExp env x
+                               print val
+                               return (env', VVoid)
+        Id "printDouble" -> do (env', val) <- evalExp env x
+                               print val
+                               return (env', VVoid)
+        Id "readInt"     -> do i <- readInt
+                               return (env, VInt i)
+        Id "readDouble"  -> do d <- readDouble
+                               return (env, VDouble d)
+        _  -> do (DFun _ _ args stms) <- return (lookupFun env f)
+                 -- Create variable ret_val' (description above). /Johan
+                 (freshEnv, oldEnv') <- setArgs (addVar (enterScope env)
+                                                        (Id "ret_val'")
+                                                )
+                                                env xs args
+                 (_, val) <- execStms freshEnv stms
+                 return (oldEnv', val) 
 
       EPostIncr x     -> case lookupVar env x of
                             VInt i    -> return (setVar env x (VInt (i+1))   , VInt i)
@@ -166,6 +179,12 @@ evalExp env e =
       --EOr
       --EAss
 
+readInt :: IO Integer
+readInt = readLn
+
+readDouble :: IO Double
+readDouble = readLn
+
 addDefs :: Env -> [Def] -> Env
 addDefs env [] = env
 addDefs (sigs, scopes) (def@(DFun _ f _ _):defs) =
@@ -181,6 +200,7 @@ addVar :: Env -> Id -> Env
 addVar (sigs, (scope:rest)) id = case Map.lookup id scope of 
     Just _  -> error $ "Variable " ++ printTree id ++ " already declared"
     Nothing -> (sigs, ((Map.insert id VUndef scope):rest))
+
 
 -- Only to be used for declared variables.
 setVar :: Env -> Id -> Value -> Env
