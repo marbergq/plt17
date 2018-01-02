@@ -176,8 +176,13 @@ evalExp env e =
       --EEq
       --ENEq
       --EAnd
-      --EOr
-      --EAss
+      EOr e1 e2       -> do (env', VBool v1) <- evalExp env e1
+                            if (v1 == True)
+                              then return (env', VBool v1)
+                              else do (env'', v2) <- evalExp env' e2
+                                      return (env'', v2)
+      EAss id e       -> do (env', val) <- evalExp env e
+                            return ((setVar env' id val), val)
 
 readInt :: IO Integer
 readInt = readLn
