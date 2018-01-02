@@ -1,8 +1,8 @@
 module Interpreter where
 
 import Control.Monad
---import System.Environment (getArgs)
 -- Possibly this one too:
+--import System.Environment (getArgs)
 import System.Exit (exitFailure)
 
 import Data.Map (Map)
@@ -12,8 +12,8 @@ import CPP.Abs
 import CPP.Print
 import CPP.ErrM
 -- possibly these two as well:
-import CPP.Lex
-import CPP.Par
+--import CPP.Lex
+--import CPP.Par
 
 data Value = VInt Integer | VDouble Double | VBool Bool | VVoid | VUndef
 
@@ -28,7 +28,6 @@ type Env = (Sig,[Context])
 type Sig = Map Id Def
 type Context = Map Id Value
 
---DOES NOT HAVE RETURN TYPE FOR ERRORS
 interpret :: Program -> IO ()
 interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs) 
                          --                (Id "main")) of 
@@ -124,17 +123,29 @@ evalExp env e =
       -- in this function evalExp (according to labPM).
       --agreed. /m
 
-      --EPostIncr
-      --EPostDecr
-      --EPreIncr
-      --EPreDecr
-      --ETimes
-      --EDiv
-      EPlus e1 e2     -> do (_, v1) <- evalExp env e1
-                            (_, v2) <- evalExp env e2
+      EPostIncr x     -> case lookupVar env x of
+                            VInt i    -> return (setVar env x (VInt (i+1))   , VInt i)
+                            VDouble d -> return (setVar env x (VDouble (d+1)), VDouble d)
+      EPostDecr x     -> case lookupVar env x of
+                            VInt i    -> return (setVar env x (VInt (i-1))   , VInt i)
+                            VDouble d -> return (setVar env x (VDouble (d-1)), VDouble d)
+      EPreIncr x      -> case lookupVar env x of
+                            VInt i    -> return (setVar env x (VInt (i+1))   , VInt (i+1))
+                            VDouble d -> return (setVar env x (VDouble (d+1)), VDouble (d+1))
+      EPreDecr x      -> case lookupVar env x of
+                            VInt i    -> return (setVar env x (VInt (i-1))   , VInt (i-1))
+                            VDouble d -> return (setVar env x (VDouble (d-1)), VDouble (d-1))
+      ETimes e1 e2    -> do (env', v1) <- evalExp env e1
+                            (env'', v2) <- evalExp env' e2
                             case (v1,v2) of
-                              (VInt i1, VInt i2)       -> return (env, VInt (i1+i2) )
-                              (VDouble d1, VDouble d2) -> return (env, VDouble (d1+d2) )
+                              (VInt i1, VInt i2)       -> return (env'', VInt (i1 * i2) )
+                              (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 * d2) ) 
+      --EDiv e1 e2      ->
+      EPlus e1 e2     -> do (env', v1) <- evalExp env e1
+                            (env'', v2) <- evalExp env' e2
+                            case (v1,v2) of
+                              (VInt i1, VInt i2)       -> return (env'', VInt (i1+i2) )
+                              (VDouble d1, VDouble d2) -> return (env'', VDouble (d1+d2) )
       --EMinus
       --ELt
       --EGt
@@ -162,10 +173,9 @@ addVar (sigs, (scope:rest)) id = case Map.lookup id scope of
     Just _  -> error $ "Variable " ++ printTree id ++ " already declared"
     Nothing -> (sigs, ((Map.insert id VUndef scope):rest))
 
--- DOES NOT HAVE RETURN TYPE FOR ERRORS
 -- Only to be used for declared variables.
 setVar :: Env -> Id -> Value -> Env
-setVar (_, []) id _ = error $ "Unknown variable " ++ printTree id ++ "."
+setVar (_, []) id _              = error $ "Unknown variable " ++ printTree id ++ "."
 setVar (sigs, (scope:rest)) id v = case Map.lookup id scope of
     Just _  -> (sigs, (Map.insert id v scope):rest)
     Nothing -> let (sigs', rest') = setVar (sigs, rest) id v
@@ -190,7 +200,6 @@ setArgs freshEnv oldEnv (e:es) ((ADecl _ id):args) = do
   (oldEnv', v) <- evalExp oldEnv e --oldEnv' captures potential side effects
   setArgs (addSetVar freshEnv id v) oldEnv' es args
 
--- DOES NOT HAVE RETURN TYPE FOR ERRORS
 -- lookupVar can output the value VUndef.
 lookupVar :: Env -> Id -> Value
 lookupVar (_, []) id = error $ "Uninitialized variable " ++ printTree id ++ "."
@@ -198,7 +207,6 @@ lookupVar (sigs, (scope:rest)) id = case Map.lookup id scope of
                                      Nothing -> lookupVar (sigs, rest) id
                                      Just v  -> v
 
--- DOES NOT HAVE RETURN TYPE FOR ERRORS
 lookupFun :: Env -> Id -> Def
 lookupFun (sigs, _) f = case Map.lookup f sigs of
     Nothing  -> error $ "Unknown function " ++ printTree f ++ "."
