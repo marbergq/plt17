@@ -63,16 +63,16 @@ execStms :: Env -> [Stm] -> IO (Env, Value)
 execStms env [] = return (env, VVoid)
 -- If a return statement has been encountered as the previous statement then
 -- don't execute the following statements st and stms.
-execStms env (st:stms) = case lookupVar env (Id "ret_val'") of
-                           VUndef -> do (env', _) <- execStm env st
-                                        execStms env' stms
-                           val    -> return (env, val)
+execStms env (st:stms) = case reachedReturn env of 
+                           (False, _) -> do (env', _) <- execStm env st
+                                            execStms env' stms
+                           (True, v)  -> return (env, v)
 
 --Consider removing Value in return type. /m
 execStm :: Env -> Stm -> IO (Env, Value)
 execStm env s = 
     case s of
-      SExp e             -> evalExp env e
+      SExp e             -> evalExp env e --fast ignorera värdet
       SDecls _ []        -> return (env, VVoid)
       SDecls t (id:ids)  -> execStm (addVar env id) (SDecls t ids)
       -- Change: Pass env' (output from evalExp) to addVar according to rule in
@@ -140,13 +140,22 @@ evalExp env e =
                             case (v1,v2) of
                               (VInt i1, VInt i2)       -> return (env'', VInt (i1 * i2) )
                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 * d2) ) 
-      --EDiv e1 e2      ->
+      EDiv e1 e2      -> do (env', v1) <- evalExp env e1
+                            (env'', v2) <- evalExp env' e2
+                            case (v1,v2) of
+                              (VInt i1, VInt i2)       -> return (env'', VInt (i1 `div` i2 ) )
+                              (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 / d2) ) 
+                              --agreed both div and / has a sufficient error handling for division by zero
       EPlus e1 e2     -> do (env', v1) <- evalExp env e1
                             (env'', v2) <- evalExp env' e2
                             case (v1,v2) of
                               (VInt i1, VInt i2)       -> return (env'', VInt (i1+i2) )
                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1+d2) )
-      --EMinus
+      EMinus e1 e2    -> do (env', v1) <- evalExp env e1
+                            (env'', v2) <- evalExp env' e2
+                            case (v1,v2) of
+                              (VInt i1, VInt i2)       -> return (env'', VInt (i1-i2) )
+                              (VDouble d1, VDouble d2) -> return (env'', VDouble (d1-d2) )
       --ELt
       --EGt
       --ELtEq
@@ -200,12 +209,19 @@ setArgs freshEnv oldEnv (e:es) ((ADecl _ id):args) = do
   (oldEnv', v) <- evalExp oldEnv e --oldEnv' captures potential side effects
   setArgs (addSetVar freshEnv id v) oldEnv' es args
 
--- lookupVar can output the value VUndef.
 lookupVar :: Env -> Id -> Value
 lookupVar (_, []) id = error $ "Uninitialized variable " ++ printTree id ++ "."
 lookupVar (sigs, (scope:rest)) id = case Map.lookup id scope of
-                                     Nothing -> lookupVar (sigs, rest) id
-                                     Just v  -> v
+                                     Nothing     -> lookupVar (sigs, rest) id
+                                     Just VUndef -> error $ "Uninitialized variable " ++ printTree id ++ "."
+                                     Just v      -> v
+
+reachedReturn :: Env -> (Bool, Value)
+reachedReturn (_, [])              = (False, VUndef )
+reachedReturn (sigs, (scope:rest)) = case Map.lookup (Id "ret_val'") scope of
+                                       Nothing     -> reachedReturn (sigs, rest)
+                                       Just VUndef -> (False, VUndef)
+                                       Just v      -> (True, v)
 
 lookupFun :: Env -> Id -> Def
 lookupFun (sigs, _) f = case Map.lookup f sigs of
