@@ -76,7 +76,6 @@ pattern matching /Johan
       SReturn e          -> do (env', val) <- evalExp env e
                                -- putStrLn $ "val of x: " ++ show val
                                setVar env' (Id "ret_val'") val
-
       SWhile eCon s      -> do (env', VBool b) <- evalExp env eCon
                                case b of 
                                  False -> return env'
@@ -103,12 +102,11 @@ pattern matching /Johan
 evalExp :: Env -> Exp -> IO (Env, Value)
 evalExp env e = 
     case e of
-      ETrue          -> return (env, VBool True)
-      EFalse         -> return (env, VBool False)
-      EInt i         -> return (env, VInt i)
-      EDouble d      -> return (env, VDouble d)
-      EId id         -> return (env, lookupVar env id)
-
+      ETrue            -> return (env, VBool True)
+      EFalse           -> return (env, VBool False)
+      EInt i           -> return (env, VInt i)
+      EDouble d        -> return (env, VDouble d)
+      EId id           -> return (env, lookupVar env id)
       EApp f xs@(x:xr) -> case f of
         Id "printInt"    -> do (env', val) <- evalExp env x
                                print val
@@ -120,66 +118,66 @@ evalExp env e =
                                return (env, VInt i)
         Id "readDouble"  -> do d <- readDouble
                                return (env, VDouble d)
-        _  -> do (DFun _ _ args stms) <- return (lookupFun env f)
-                 -- Create variable ret_val' (description above). /Johan
-                 (freshEnv, oldEnv') <- setArgs (addVar (enterScope env)
-                                                        (Id "ret_val'")
-                                                )
-                                                env xs args
-                 (_, val) <- execStms freshEnv stms
-                 return (oldEnv', val) 
-      EPostIncr x     -> case lookupVar env x of
-                            VInt i    -> return (setVar env x (VInt (i+1))   , VInt i)
-                            VDouble d -> return (setVar env x (VDouble (d+1)), VDouble d)
-      EPostDecr x     -> case lookupVar env x of
-                            VInt i    -> return (setVar env x (VInt (i-1))   , VInt i)
-                            VDouble d -> return (setVar env x (VDouble (d-1)), VDouble d)
-      EPreIncr x      -> case lookupVar env x of
-                            VInt i    -> return (setVar env x (VInt (i+1))   , VInt (i+1))
-                            VDouble d -> return (setVar env x (VDouble (d+1)), VDouble (d+1))
-      EPreDecr x      -> case lookupVar env x of
-                            VInt i    -> return (setVar env x (VInt (i-1))   , VInt (i-1))
-                            VDouble d -> return (setVar env x (VDouble (d-1)), VDouble (d-1))
-      ETimes e1 e2    -> do (v1, v2, env'') <- twiceEval env e1 e2 
-                            case (v1,v2) of
-                              (VInt i1, VInt i2)       -> return (env'', VInt (i1 * i2) )
-                              (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 * d2) ) 
-      EDiv e1 e2      -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            case (v1,v2) of
-                              (VInt i1, VInt i2)       -> return (env'', VInt (i1 `div` i2 ) )
-                              (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 / d2) ) 
-                              --agreed both div and / has a sufficient error handling for division by zero
-      EPlus e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            case (v1,v2) of
-                              (VInt i1, VInt i2)       -> return (env'', VInt (i1+i2) )
-                              (VDouble d1, VDouble d2) -> return (env'', VDouble (d1+d2) )
-      EMinus e1 e2    -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            case (v1,v2) of
-                              (VInt i1, VInt i2)       -> return (env'', VInt (i1-i2) )
-                              (VDouble d1, VDouble d2) -> return (env'', VDouble (d1-d2) )
-      ELt e1 e2       -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            return (env'', VBool (compareVal v1 v2 "<" ))
-      EGt e1 e2       -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            return (env'', VBool (compareVal v1 v2 ">" ))
-      ELtEq e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            return (env'', VBool (compareVal v1 v2 "<=" ))
-      EGtEq e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            return (env'', VBool (compareVal v1 v2 ">=" ))
-      EEq e1 e2       -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            return (env'', VBool (compareVal v1 v2 "==" ))
-      ENEq e1 e2      -> do (v1, v2, env'') <- twiceEval env e1 e2
-                            return (env'', VBool (compareVal v1 v2 "/=" ))
-      EAnd e1 e2      -> do (env', val) <- evalExp env e1
-                            case val of
-                              VBool True -> evalExp env' e2
-                              _          -> return (env', val)
-      EOr e1 e2       -> do (env', VBool v1) <- evalExp env e1
-                            if (v1 == True)
-                              then return (env', VBool v1)
-                              else do (env'', v2) <- evalExp env' e2
-                                      return (env'', v2)
-      EAss id e       -> do (env', val) <- evalExp env e
-                            return ((setVar env' id val), val)
+        _                -> do (DFun _ _ args stms) <- return (lookupFun env f)
+                               {- Create variable ret_val' (description above). /Johan-}
+                               (freshEnv, oldEnv') <- setArgs (addVar (enterScope env)
+                                                                      (Id "ret_val'")
+                                                              )
+                                                              env xs args
+                               (_, val) <- execStms freshEnv stms
+                               return (oldEnv', val) 
+      EPostIncr x      -> case lookupVar env x of
+                             VInt i    -> return (setVar env x (VInt (i+1))   , VInt i)
+                             VDouble d -> return (setVar env x (VDouble (d+1)), VDouble d)
+      EPostDecr x      -> case lookupVar env x of
+                             VInt i    -> return (setVar env x (VInt (i-1))   , VInt i)
+                             VDouble d -> return (setVar env x (VDouble (d-1)), VDouble d)
+      EPreIncr x       -> case lookupVar env x of
+                             VInt i    -> return (setVar env x (VInt (i+1))   , VInt (i+1))
+                             VDouble d -> return (setVar env x (VDouble (d+1)), VDouble (d+1))
+      EPreDecr x       -> case lookupVar env x of
+                             VInt i    -> return (setVar env x (VInt (i-1))   , VInt (i-1))
+                             VDouble d -> return (setVar env x (VDouble (d-1)), VDouble (d-1))
+      ETimes e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2 
+                             case (v1,v2) of
+                               (VInt i1, VInt i2)       -> return (env'', VInt (i1 * i2) )
+                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 * d2) ) 
+      EDiv e1 e2       -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             case (v1,v2) of
+                               (VInt i1, VInt i2)       -> return (env'', VInt (i1 `div` i2 ) )
+                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1 / d2) ) 
+                               {-agreed both div and / has a sufficient error handling for division by zero-}
+      EPlus e1 e2      -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             case (v1,v2) of
+                               (VInt i1, VInt i2)       -> return (env'', VInt (i1+i2) )
+                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1+d2) )
+      EMinus e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             case (v1,v2) of
+                               (VInt i1, VInt i2)       -> return (env'', VInt (i1-i2) )
+                               (VDouble d1, VDouble d2) -> return (env'', VDouble (d1-d2) )
+      ELt e1 e2        -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             return (env'', VBool (compareVal v1 v2 "<" ))
+      EGt e1 e2        -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             return (env'', VBool (compareVal v1 v2 ">" ))
+      ELtEq e1 e2      -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             return (env'', VBool (compareVal v1 v2 "<=" ))
+      EGtEq e1 e2      -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             return (env'', VBool (compareVal v1 v2 ">=" ))
+      EEq e1 e2        -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             return (env'', VBool (compareVal v1 v2 "==" ))
+      ENEq e1 e2       -> do (v1, v2, env'') <- twiceEval env e1 e2
+                             return (env'', VBool (compareVal v1 v2 "/=" ))
+      EAnd e1 e2       -> do (env', val) <- evalExp env e1
+                             case val of
+                               VBool True -> evalExp env' e2
+                               _          -> return (env', val)
+      EOr e1 e2        -> do (env', VBool v1) <- evalExp env e1
+                             if (v1 == True)
+                               then return (env', VBool v1)
+                               else do (env'', v2) <- evalExp env' e2
+                                       return (env'', v2)
+      EAss id e        -> do (env', val) <- evalExp env e
+                             return ((setVar env' id val), val)
 
 twiceEval :: Env -> Exp -> Exp -> IO (Value, Value, Env)
 twiceEval env e1 e2 = do (env', v1) <- evalExp env e1
@@ -246,10 +244,9 @@ addVar (sigs, (scope:rest)) id = case Map.lookup id scope of
     Just _  -> fail $ "Variable " ++ printTree id ++ " already declared"
     Nothing -> return (sigs, ((Map.insert id VUndef scope):rest))
 
-
--- Only to be used for declared variables.
 setVar :: Env -> Id -> Value -> IO Env
 setVar (_, []) id _              = fail $ "Unknown variable " ++ printTree id ++ "."
+
 setVar (sigs, (scope:rest)) id v = case Map.lookup id scope of
     Just _  -> return (sigs, (Map.insert id v scope):rest)
     Nothing -> do (sigs', rest') <- setVar (sigs, rest) id v
@@ -271,11 +268,11 @@ evaluated. This environment should not have a fresh scope on top.
 setArgs :: Env -> Env -> [Exp] -> [Arg] -> IO (Env, Env)
 setArgs freshEnv oldEnv' [] []                     = return (freshEnv, oldEnv')
 setArgs freshEnv oldEnv (e:es) ((ADecl _ id):args) = do
-  (oldEnv', v) <- evalExp oldEnv e --oldEnv' captures potential side effects
+  (oldEnv', v) <- evalExp oldEnv e
   setArgs (addSetVar freshEnv id v) oldEnv' es args
 
 lookupVar :: Env -> Id -> IO Value
-lookupVar (_, []) id = fail $ "Uninitialized variable " ++ printTree id ++ "."
+lookupVar (_, []) id              = fail $ "Uninitialized variable " ++ printTree id ++ "."
 lookupVar (sigs, (scope:rest)) id = case Map.lookup id scope of
                                      Nothing     -> lookupVar (sigs, rest) id
                                      Just VUndef -> fail $ "Uninitialized variable " ++ printTree id ++ "."
