@@ -47,7 +47,9 @@ the language we're interpreting. No name clashes will occur.
 -}
 
 execStms :: Env -> [Stm] -> IO (Env, Value)
-execStms env [] = return (env, VVoid)
+execStms env []        = case reachedReturn env of
+                           (False, _) -> return (env, VVoid)
+                           (True, v)  -> return (env, v)
 execStms env (st:stms) = case reachedReturn env of 
                            (False, _) -> do env' <- execStm env st
                                             execStms env' stms
@@ -111,11 +113,15 @@ evalExp env e =
 
       EApp f xs@(x:xr) -> case f of
         Id "printInt"    -> do (env', val) <- evalExp env x
-                               print val
-                               return (env', VVoid)
+                               case val of
+                                 VInt i -> do print i
+                                              return (env', VVoid)
+                                 _      -> fail "printInt can only print integers."
         Id "printDouble" -> do (env', val) <- evalExp env x
-                               print val
-                               return (env', VVoid)
+                               case val of
+                                 VDouble d -> do print d
+                                                 return (env', VVoid)
+                                 _         -> fail "printInt can only print doubles."
         Id "readInt"     -> do i <- readInt
                                return (env, VInt i)
         Id "readDouble"  -> do d <- readDouble
