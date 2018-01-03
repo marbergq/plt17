@@ -122,24 +122,35 @@ evalExp env e =
         Id "readDouble"  -> do d <- readDouble
                                return (env, VDouble d)
         _                -> do (DFun _ _ args stms) <- lookupFun env f
-                               -- Create variable ret_val' (description above). /Johan
+                               {- Create variable ret_val' (description above). /Johan-}
                                freshEnv <- addVar (enterScope env) (Id "ret_val'")
                                (freshEnv', oldEnv') <- setArgs freshEnv env xs args
                                (_, val) <- execStms freshEnv' stms
                                return (oldEnv', val)
-
-      EPostIncr x      -> case lookupVar env x of
-                             VInt i    -> return (setVar env x (VInt (i+1))   , VInt i)
-                             VDouble d -> return (setVar env x (VDouble (d+1)), VDouble d)
-      EPostDecr x      -> case lookupVar env x of
-                             VInt i    -> return (setVar env x (VInt (i-1))   , VInt i)
-                             VDouble d -> return (setVar env x (VDouble (d-1)), VDouble d)
-      EPreIncr x       -> case lookupVar env x of
-                             VInt i    -> return (setVar env x (VInt (i+1))   , VInt (i+1))
-                             VDouble d -> return (setVar env x (VDouble (d+1)), VDouble (d+1))
-      EPreDecr x       -> case lookupVar env x of
-                             VInt i    -> return (setVar env x (VInt (i-1))   , VInt (i-1))
-                             VDouble d -> return (setVar env x (VDouble (d-1)), VDouble (d-1))
+      EPostIncr x      -> do v <- lookupVar env x 
+                             case v of
+                               VInt i    -> do env' <- setVar env x (VInt (i+1))
+                                               return (env', VInt i)
+                               VDouble d -> do env' <- setVar env x (VInt (d+1))
+                                               return (env', VInt d)
+      EPostDecr x      -> do v <- lookupVar env x 
+                             case v of
+                               VInt i    -> do env' <- setVar env x (VInt (i-1))
+                                               return (env', VInt i)
+                               VDouble d -> do env' <- setVar env x (VInt (d-1))
+                                               return (env', VInt d)
+      EPreIncr x       -> do v <- lookupVar env x 
+                             case v of
+                               VInt i    -> do env' <- setVar env x (VInt (i+1))
+                                               return (env', VInt i+1)
+                               VDouble d -> do env' <- setVar env x (VInt (d+1))
+                                               return (env', VInt d+1)
+      EPreDecr x       -> do v <- lookupVar env x 
+                             case v of
+                               VInt i    -> do env' <- setVar env x (VInt (i-1))
+                                               return (env', VInt i-1)
+                               VDouble d -> do env' <- setVar env x (VInt (d-1))
+                                               return (env', VInt d-1)
       ETimes e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2 
                              case (v1,v2) of
                                (VInt i1, VInt i2)       -> return (env'', VInt (i1 * i2) )
@@ -249,7 +260,6 @@ addVar (sigs, (scope:rest)) id = case Map.lookup id scope of
 
 setVar :: Env -> Id -> Value -> IO Env
 setVar (_, []) id _              = fail $ "Unknown variable " ++ printTree id ++ "."
-
 setVar (sigs, (scope:rest)) id v = case Map.lookup id scope of
     Just _  -> return (sigs, (Map.insert id v scope):rest)
     Nothing -> do (sigs', rest') <- setVar (sigs, rest) id v
