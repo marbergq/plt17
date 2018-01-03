@@ -1,9 +1,7 @@
 module Interpreter where
 
 import Control.Monad
--- Possibly this one too:
---import System.Environment (getArgs)
-import System.Exit (exitFailure)
+--import System.Exit (exitFailure)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -11,9 +9,6 @@ import qualified Data.Map as Map
 import CPP.Abs
 import CPP.Print
 import CPP.ErrM
--- possibly these two as well:
---import CPP.Lex
---import CPP.Par
 
 data Value = VInt Integer | VDouble Double | VBool Bool | VVoid | VUndef
 
@@ -53,51 +48,54 @@ the language we're interpreting. No name clashes will occur.
 
 execStms :: Env -> [Stm] -> IO (Env, Value)
 execStms env [] = return (env, VVoid)
--- If a return statement has been encountered as the previous statement then
--- don't execute the following statements st and stms.
 execStms env (st:stms) = case reachedReturn env of 
-                           (False, _) -> do (env', _) <- execStm env st
+                           (False, _) -> do env' <- execStm env st
                                             execStms env' stms
                            (True, v)  -> return (env, v)
+{- 
+If a return statement has been encountered as the previous statement then
+don't execute the following statements st and stms.
+-}
 
---Consider removing Value in return type. /m
-execStm :: Env -> Stm -> IO (Env, Value)
+execStm :: Env -> Stm -> IO Env
 execStm env s = 
     case s of
-      SExp e             -> evalExp env e --fast ignorera värdet
-      SDecls _ []        -> return (env, VVoid)
+      SExp e             -> do (env, val) <- evalExp env e
+                               return env --TODO: use monads instead
+      SDecls _ []        -> return env
       SDecls t (id:ids)  -> execStm (addVar env id) (SDecls t ids)
-      -- Change: Pass env' (output from evalExp) to addVar according to rule in
-      -- the PLT textbook. /Johan
       SInit _ id e       -> do (env', val) <- evalExp env e
-                               return (setVar (addVar env' id) id val, VVoid)
-      -- Encountering SReturn changes the variable ret_val' from VUndef to the
-      -- value of expression e.
-      -- ret_val' with a defined value is caught by the function execStms by
-      -- pattern matching /Johan
+                               return $ addSetVar env' id val
+{-
+Encountering SReturn changes the variable ret_val' from VUndef to the
+value of expression e.
+ret_val' with a defined value is caught by the function execStms by
+pattern matching /Johan
+-}
       SReturn e          -> do (env', val) <- (evalExp env e)
-                               return ((setVar env' (Id "ret_val'") val), VVoid)
+                               return $ setVar env' (Id "ret_val'") val
       SWhile eCon s      -> do (env', VBool b) <- evalExp env eCon
-                               if (b == False)
-                                 then return (env', VVoid)
-                                 else case s of
-                                   SBlock _ -> do (env'', _) <- execStm env' s
+                               case b of 
+                                 False -> return env'
+                                 _     -> case s of
+                                            SBlock _ -> 
+                                               do env'' <- execStm env' s
                                                   execStm env'' (SWhile eCon s)
-                                   _ -> do (env'', _) <- execStm (enterScope env') s
-                                           execStm (leaveScope env'') (SWhile eCon s)
+                                            _        -> 
+                                               do env'' <- execStm (enterScope env') s
+                                                  execStm (leaveScope env'') (SWhile eCon s)
       SBlock stms        -> do (env', _) <- execStms (enterScope env) stms
-                               return (leaveScope env', VVoid)
-
+                               return $ leaveScope env'
       SIfElse eCon sI sE -> do (env', VBool b) <- evalExp env eCon
                                if (b == True)
                                   then case sI of
                                     SBlock _ -> execStm env' sI
-                                    _ -> do (env'', _) <- execStm (enterScope env') sI
-                                            return ((leaveScope env''), VVoid)
+                                    _ -> do env'' <- execStm (enterScope env') sI
+                                            return $ leaveScope env''
                                   else case sE of
                                     SBlock _ -> execStm env' sE
-                                    _ -> do (env'', _) <- execStm (enterScope env') sE
-                                            return ((leaveScope env''), VVoid)
+                                    _ -> do env'' <- execStm (enterScope env') sE
+                                            return $ leaveScope env''
 
 evalExp :: Env -> Exp -> IO (Env, Value)
 evalExp env e = 
