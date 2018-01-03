@@ -285,10 +285,10 @@ setArgs freshEnv oldEnv (e:es) ((ADecl _ id):args) = do
   setArgs freshEnv' oldEnv' es args
 
 lookupVar :: Env -> Id -> IO Value
-lookupVar (_, []) id              = fail $ "Uninitialized variable " ++ printTree id ++ "."
+lookupVar (_, []) id              = fail $ "uninitialized variable " ++ printTree id
 lookupVar (sigs, (scope:rest)) id = case Map.lookup id scope of
                                       Nothing     -> lookupVar (sigs, rest) id
-                                      Just VUndef -> fail $ "Uninitialized variable " ++ printTree id ++ "."
+                                      Just VUndef -> fail $ "uninitialized variable " ++ printTree id
                                       Just v      -> return v
 
 reachedReturn :: Env -> (Bool, Value)

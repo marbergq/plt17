@@ -16,15 +16,15 @@ type Context = Map Id Type
 typecheck :: Program -> Err ()
 typecheck (PDefs defs) =
     case addDefs starterSig defs of
-        Bad err               -> fail err
-        Ok sigs               -> case Map.lookup (Id "main") sigs of
+        Bad err  -> fail err
+        Ok sigs  -> case Map.lookup (Id "main") sigs of
           Just ([], Type_int) -> checkDefs (sigs, [Map.empty]) defs
-          Just ([], t)        -> fail ("main function is not of type int. "
-                                       ++ "The type is: " ++ show t)
+          Just ([], t)        -> fail $ "main function is not of type int. "
+                                      ++ "The type is: " ++ show t
           Just (_, Type_int)  -> fail "main function must have zero agruments."
-          Just _              -> fail ("main function is not of type int " ++
-                                 "and has arguments (no arguments are allowed).")
-          Nothing             -> fail $ "main function not found."
+          Just _              -> fail $ "main function is not of type int " ++
+                                      "and has arguments (no arguments are allowed)."
+          Nothing             -> fail "main function not found."
 
 -- This function initializes the signature symbol table
 addDefs :: Sig -> [Def] -> Err Sig
@@ -32,21 +32,21 @@ addDefs sigs []                         = return sigs
 addDefs sigs ( (DFun t f args _):funs ) =
     case Map.lookup f sigs of 
       Nothing -> addDefs (Map.insert f ((reverse (enlistTypes [] args)), t) sigs) funs
-      _       -> fail ("function " ++ printTree f ++ " already declared.")
+      _       -> fail $ "function " ++ printTree f ++ " already declared."
 
 enlistTypes :: [Type] -> [Arg] -> [Type]
-enlistTypes list []               = list
+enlistTypes list []                 = list
 enlistTypes list ((ADecl t _):args) = enlistTypes (t:list) args
 
 checkDefs :: Env -> [Def] -> Err ()
 checkDefs env [] = return ()
 checkDefs env (def:defs) = case checkDef env def of
                               Bad err -> fail err
-                              Ok _ -> checkDefs env defs
+                              Ok _    -> checkDefs env defs
 
 checkDef :: Env -> Def -> Err ()
 checkDef env (DFun t f args stms) = case addArgs (addScope env) args of
-  Bad err -> fail ("In function " ++ (show f) ++ ": " ++ err)
+  Bad err -> fail $ "In function " ++ (show f) ++ ": " ++ err
   Ok env' -> do checkStms env' stms f
                 return ()
 
@@ -54,8 +54,8 @@ addArgs :: Env -> [Arg] -> Err Env
 addArgs env [] = Ok env
 addArgs env ((ADecl t id):args)
   | t == Type_void = fail "Argument type must not be void."
-  | otherwise = case addVar env [id] t of
-      Bad err -> fail ("Variable declared twice in argument list. " ++ err)
+  | otherwise      = case addVar env [id] t of
+      Bad err -> fail $ "Variable declared twice in argument list. " ++ err
       Ok env' -> addArgs env' args
 
 --Statements
@@ -65,27 +65,27 @@ checkStm env s fid =
         SExp e          -> do inferExp env e
                               return env
         SDecls t ids    -> case t of
-                              Type_void -> fail ("Declaration type is void: "
-                                                 ++ printTree t)
+                              Type_void -> fail $ "Declaration type is void: "
+                                                 ++ printTree t
                               _ -> addVar env ids t
         SInit t id e    -> case t of
-                              Type_void -> fail ("Initialization type is void: "
-                                                 ++ printTree t)
+                              Type_void -> fail $ "Initialization type is void: "
+                                                 ++ printTree t
                               _ -> do checkExp env e t
                                       addVar env [id] t
         SReturn e       -> do t <- lookupFun env fid
                               checkExp env e (snd t)
-                              return env
+                              return env --fel
         SWhile e stm    -> do checkExp env e Type_bool
                               checkStm env stm fid
         SBlock stms     -> do checkStms (addScope env) stms fid
                               return env
         SIfElse e s1 s2 -> do checkExp env e Type_bool
-                              checkStm env s1 fid
+                              checkStm env s1 fid --fel
                               checkStm env s2 fid
 
 checkStms :: Env -> [Stm] -> Id -> Err Env
-checkStms env [] _ = return env
+checkStms env [] _           = return env
 checkStms env (stm:stms) fid = do env' <- checkStm env stm fid
                                   checkStms env' stms fid
 
@@ -101,8 +101,8 @@ inferExp env e =
       EId x          -> lookupVar env x
       EApp f es      -> do funType <- lookupFun env f
                            case checkArgs env es (fst funType) of
-                             Bad err -> fail ("Illegal function call "
-                                              ++ printTree f ++ ". " ++ err)
+                             Bad err -> fail $ "Illegal function call "
+                                              ++ printTree f ++ ". " ++ err
                              Ok _    -> return (snd funType)
 
       EPlus e1 e2    -> inferBinary [Type_int, Type_double] env e1 e2
@@ -150,8 +150,8 @@ inferBinary validTypes env e1 e2 = do
     if elem t1 validTypes
         then
             case checkExp env e2 t1 of
-                Bad err -> fail (printTree e1 ++ " has type " ++ printTree t1
-                                 ++ " whereas " ++ err)
+                Bad err -> fail $ printTree e1 ++ " has type " ++ printTree t1
+                                 ++ " whereas " ++ err
                 Ok _    -> return t1
         else
             fail $ "Wrong type of expression " ++ printTree t1
@@ -166,9 +166,9 @@ checkExp env e t =
 
 -- This function is used to check EApp argument list
 checkArgs :: Env -> [Exp] -> [Type] -> Err ()
-checkArgs env [] [] = return ()
-checkArgs env [] _ = fail $ "In argument list: Too few arguments provided."
-checkArgs env _ [] = fail $ "In argument list: Too many arguments provided."
+checkArgs env [] []         = return ()
+checkArgs env [] _          = fail $ "In argument list: Too few arguments provided."
+checkArgs env _ []          = fail $ "In argument list: Too many arguments provided."
 checkArgs env (e:es) (t:ts) = case checkExp env e t of
                                 Bad err -> fail $ "In argument list: " ++ err
                                 Ok _    -> checkArgs env es ts
@@ -185,14 +185,14 @@ starterSig = Map.insert (Id "printInt") ([Type_int],Type_void) $
              (Map.empty)
 
 addVar :: Env -> [Id] -> Type -> Err Env
-addVar env [] _ = return env
+addVar env [] _                   = return env
 addVar (sig, scope:rest) (x:xs) t = 
     case Map.lookup x scope of
       Nothing -> addVar (sig, ((Map.insert x t scope):rest)) xs t
       Just _  -> fail ("Variable " ++ printTree x ++ " already declared.")
 
 lookupVar :: Env -> Id -> Err Type
-lookupVar (_, []) x = fail $ "Unknown variable " ++ printTree x ++ "."
+lookupVar (_, []) x              = fail $ "Unknown variable " ++ printTree x ++ "."
 lookupVar (sigs, (scope:rest)) x = case Map.lookup x scope of
                              Nothing -> lookupVar (sigs, rest) x
                              Just t  -> return t
@@ -200,7 +200,7 @@ lookupVar (sigs, (scope:rest)) x = case Map.lookup x scope of
 lookupFun :: Env -> Id -> Err ([Type],Type)
 lookupFun (sigs, cons) x = case Map.lookup x sigs of
                             Nothing -> fail $ "Unknown function " ++ printTree x ++ "."
-                            Just t -> return t
+                            Just t  -> return t
 
 addScope :: Env -> Env
 addScope (sigs, cons) = (sigs, (Map.empty):cons)
