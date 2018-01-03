@@ -61,9 +61,10 @@ execStm :: Env -> Stm -> IO Env
 execStm env s = 
     case s of
       SExp e             -> do (env', val) <- evalExp env e
-                               return env' --TODO: use monads instead
+                               return env'
       SDecls _ []        -> return env
-      SDecls t (id:ids)  -> execStm (addVar env id) (SDecls t ids)
+      SDecls t (id:ids)  -> do env' <- addVar env id
+                               execStm env' (SDecls t ids)
       SInit _ id e       -> do (env', val) <- evalExp env e
                                return $ addSetVar env' id val
 {-
@@ -74,8 +75,8 @@ pattern matching /Johan
 -}
       SReturn e          -> do (env', val) <- evalExp env e
                                -- putStrLn $ "val of x: " ++ show val
-                               return ((setVar env' (Id "ret_val'") val), VVoid)
-      
+                               setVar env' (Id "ret_val'") val
+
       SWhile eCon s      -> do (env', VBool b) <- evalExp env eCon
                                case b of 
                                  False -> return env'
@@ -240,24 +241,24 @@ starterEnv = (starterSig, [Map.empty])
 starterSig :: Sig
 starterSig = Map.empty
 
-addVar :: Env -> Id -> Env
+addVar :: Env -> Id -> IO Env
 addVar (sigs, (scope:rest)) id = case Map.lookup id scope of 
-    Just _  -> error $ "Variable " ++ printTree id ++ " already declared"
-    Nothing -> (sigs, ((Map.insert id VUndef scope):rest))
+    Just _  -> fail $ "Variable " ++ printTree id ++ " already declared"
+    Nothing -> return (sigs, ((Map.insert id VUndef scope):rest))
 
 
 -- Only to be used for declared variables.
-setVar :: Env -> Id -> Value -> Env
-setVar (_, []) id _              = error $ "Unknown variable " ++ printTree id ++ "."
+setVar :: Env -> Id -> Value -> IO Env
+setVar (_, []) id _              = fail $ "Unknown variable " ++ printTree id ++ "."
 setVar (sigs, (scope:rest)) id v = case Map.lookup id scope of
-    Just _  -> (sigs, (Map.insert id v scope):rest)
-    Nothing -> let (sigs', rest') = setVar (sigs, rest) id v
-                in (sigs', scope:rest')
+    Just _  -> return (sigs, (Map.insert id v scope):rest)
+    Nothing -> do (sigs', rest') <- setVar (sigs, rest) id v
+                  return (sigs', scope:rest')
 
-addSetVar :: Env -> Id -> Value -> Env
+addSetVar :: Env -> Id -> Value -> IO Env
 addSetVar (sigs, (scope:rest)) id v = case Map.lookup id scope of
-    Just _  -> error $ "Variable " ++ printTree id ++ " already declared"
-    Nothing -> (sigs, ((Map.insert id v scope):rest))
+    Just _  -> fail $ "Variable " ++ printTree id ++ " already declared"
+    Nothing -> return (sigs, ((Map.insert id v scope):rest))
 
 {- setArgs
 The first argument of this function is the environment to be used when
@@ -273,12 +274,12 @@ setArgs freshEnv oldEnv (e:es) ((ADecl _ id):args) = do
   (oldEnv', v) <- evalExp oldEnv e --oldEnv' captures potential side effects
   setArgs (addSetVar freshEnv id v) oldEnv' es args
 
-lookupVar :: Env -> Id -> Value
-lookupVar (_, []) id = error $ "Uninitialized variable " ++ printTree id ++ "."
+lookupVar :: Env -> Id -> IO Value
+lookupVar (_, []) id = fail $ "Uninitialized variable " ++ printTree id ++ "."
 lookupVar (sigs, (scope:rest)) id = case Map.lookup id scope of
                                      Nothing     -> lookupVar (sigs, rest) id
-                                     Just VUndef -> error $ "Uninitialized variable " ++ printTree id ++ "."
-                                     Just v      -> v
+                                     Just VUndef -> fail $ "Uninitialized variable " ++ printTree id ++ "."
+                                     Just v      -> return v
 
 reachedReturn :: Env -> (Bool, Value)
 reachedReturn (_, [])              = (False, VUndef )
@@ -287,10 +288,10 @@ reachedReturn (sigs, (scope:rest)) = case Map.lookup (Id "ret_val'") scope of
                                        Just VUndef -> (False, VUndef)
                                        Just v      -> (True, v)
 
-lookupFun :: Env -> Id -> Def
+lookupFun :: Env -> Id -> IO Def
 lookupFun (sigs, _) f = case Map.lookup f sigs of
-    Nothing  -> error $ "Unknown function " ++ printTree f ++ "."
-    Just def -> def
+    Nothing  -> fail $ "Unknown function " ++ printTree f ++ "."
+    Just def -> return def
 
 enterScope :: Env -> Env
 enterScope (sigs, scopes) = (sigs, (Map.empty):scopes)
