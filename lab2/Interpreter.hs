@@ -24,11 +24,10 @@ type Sig = Map Id Def
 type Context = Map Id Value
 
 interpret :: Program -> IO ()
-interpret (PDefs defs) = do (DFun _ f [] stms) <- lookupFun (addDefs starterEnv
-                                                                     defs)
-                                                            (Id "main")
-                            execStms (addVar env (Id "ret_val'")) stms
-                            return ()
+interpret (PDefs defs) = let env = (addDefs starterEnv defs) in do 
+  (DFun _ f [] stms) <- lookupFun env (Id "main")
+  (addVar env (Id "ret_val'")) >>= (\x -> execStms x stms)
+  return ()
 
 {-
 The variable ret_val' is used when interpreting return statements SReturn.
@@ -131,26 +130,26 @@ evalExp env e =
                              case v of
                                VInt i    -> do env' <- setVar env x (VInt (i+1))
                                                return (env', VInt i)
-                               VDouble d -> do env' <- setVar env x (VInt (d+1))
-                                               return (env', VInt d)
+                               VDouble d -> do env' <- setVar env x (VDouble (d+1))
+                                               return (env', VDouble d)
       EPostDecr x      -> do v <- lookupVar env x 
                              case v of
                                VInt i    -> do env' <- setVar env x (VInt (i-1))
                                                return (env', VInt i)
-                               VDouble d -> do env' <- setVar env x (VInt (d-1))
-                                               return (env', VInt d)
+                               VDouble d -> do env' <- setVar env x (VDouble (d-1))
+                                               return (env', VDouble d)
       EPreIncr x       -> do v <- lookupVar env x 
                              case v of
                                VInt i    -> do env' <- setVar env x (VInt (i+1))
-                                               return (env', VInt i+1)
-                               VDouble d -> do env' <- setVar env x (VInt (d+1))
-                                               return (env', VInt d+1)
+                                               return (env', VInt (i+1))
+                               VDouble d -> do env' <- setVar env x (VDouble (d+1))
+                                               return (env', VDouble (d+1))
       EPreDecr x       -> do v <- lookupVar env x 
                              case v of
                                VInt i    -> do env' <- setVar env x (VInt (i-1))
-                                               return (env', VInt i-1)
-                               VDouble d -> do env' <- setVar env x (VInt (d-1))
-                                               return (env', VInt d-1)
+                                               return (env', VInt (i-1))
+                               VDouble d -> do env' <- setVar env x (VDouble (d-1))
+                                               return (env', VDouble (d-1))
       ETimes e1 e2     -> do (v1, v2, env'') <- twiceEval env e1 e2 
                              case (v1,v2) of
                                (VInt i1, VInt i2)       -> return (env'', VInt (i1 * i2) )
@@ -282,14 +281,15 @@ setArgs :: Env -> Env -> [Exp] -> [Arg] -> IO (Env, Env)
 setArgs freshEnv oldEnv' [] []                     = return (freshEnv, oldEnv')
 setArgs freshEnv oldEnv (e:es) ((ADecl _ id):args) = do
   (oldEnv', v) <- evalExp oldEnv e
-  setArgs (addSetVar freshEnv id v) oldEnv' es args
+  freshEnv' <- addSetVar freshEnv id v
+  setArgs freshEnv' oldEnv' es args
 
 lookupVar :: Env -> Id -> IO Value
 lookupVar (_, []) id              = fail $ "Uninitialized variable " ++ printTree id ++ "."
 lookupVar (sigs, (scope:rest)) id = case Map.lookup id scope of
-                                     Nothing     -> lookupVar (sigs, rest) id
-                                     Just VUndef -> fail $ "Uninitialized variable " ++ printTree id ++ "."
-                                     Just v      -> return v
+                                      Nothing     -> lookupVar (sigs, rest) id
+                                      Just VUndef -> fail $ "Uninitialized variable " ++ printTree id ++ "."
+                                      Just v      -> return v
 
 reachedReturn :: Env -> (Bool, Value)
 reachedReturn (_, [])              = (False, VUndef )
