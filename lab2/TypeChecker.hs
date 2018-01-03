@@ -187,8 +187,8 @@ starterSig = Map.insert (Id "printInt") ([Type_int],Type_void) $
              (Map.empty)
 
 addVar :: Env -> [Id] -> Type -> Err Env
-addVar env [] _                   = return env
-addVar (sig, scope:rest) (x:xs) t = 
+addVar env [] _                     = return env
+addVar (sig, (scope:rest)) (x:xs) t = 
     case Map.lookup x scope of
       Nothing -> addVar (sig, ((Map.insert x t scope):rest)) xs t
       Just _  -> fail ("Variable " ++ printTree x ++ " already declared.")
@@ -206,3 +206,6 @@ lookupFun (sigs, cons) x = case Map.lookup x sigs of
 
 addScope :: Env -> Env
 addScope (sigs, cons) = (sigs, (Map.empty):cons)
+
+popScope :: Env -> Env
+popScope (sigs, (_:cons)) = (sigs, cons)
