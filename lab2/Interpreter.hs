@@ -60,8 +60,8 @@ don't execute the following statements st and stms.
 execStm :: Env -> Stm -> IO Env
 execStm env s = 
     case s of
-      SExp e             -> do (env, val) <- evalExp env e
-                               return env --TODO: use monads instead
+      SExp e             -> do (env', val) <- evalExp env e
+                               return env' --TODO: use monads instead
       SDecls _ []        -> return env
       SDecls t (id:ids)  -> execStm (addVar env id) (SDecls t ids)
       SInit _ id e       -> do (env', val) <- evalExp env e
@@ -72,8 +72,10 @@ value of expression e.
 ret_val' with a defined value is caught by the function execStms by
 pattern matching /Johan
 -}
-      SReturn e          -> do (env', val) <- (evalExp env e)
-                               return $ setVar env' (Id "ret_val'") val
+      SReturn e          -> do (env', val) <- evalExp env e
+                               -- putStrLn $ "val of x: " ++ show val
+                               return ((setVar env' (Id "ret_val'") val), VVoid)
+      
       SWhile eCon s      -> do (env', VBool b) <- evalExp env eCon
                                case b of 
                                  False -> return env'
