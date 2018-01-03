@@ -21,7 +21,7 @@ typecheck (PDefs defs) =
           Just ([], Type_int) -> checkDefs (sigs, [Map.empty]) defs
           Just ([], t)        -> fail $ "main function is not of type int. "
                                       ++ "The type is: " ++ show t
-          Just (_, Type_int)  -> fail "main function must have zero agruments."
+          Just (_, Type_int)  -> fail "main function can't have agruments."
           Just _              -> fail $ "main function is not of type int " ++
                                       "and has arguments (no arguments are allowed)."
           Nothing             -> fail "main function not found."
@@ -39,7 +39,7 @@ enlistTypes list []                 = list
 enlistTypes list ((ADecl t _):args) = enlistTypes (t:list) args
 
 checkDefs :: Env -> [Def] -> Err ()
-checkDefs env [] = return ()
+checkDefs env []         = return ()
 checkDefs env (def:defs) = case checkDef env def of
                               Bad err -> fail err
                               Ok _    -> checkDefs env defs
@@ -67,22 +67,24 @@ checkStm env s fid =
         SDecls t ids    -> case t of
                               Type_void -> fail $ "Declaration type is void: "
                                                  ++ printTree t
-                              _ -> addVar env ids t
+                              _         -> addVar env ids t
         SInit t id e    -> case t of
                               Type_void -> fail $ "Initialization type is void: "
                                                  ++ printTree t
-                              _ -> do checkExp env e t
-                                      addVar env [id] t
+                              _         -> do checkExp env e t
+                                              addVar env [id] t
         SReturn e       -> do t <- lookupFun env fid
                               checkExp env e (snd t)
-                              return env --fel
+                              return env
         SWhile e stm    -> do checkExp env e Type_bool
-                              checkStm env stm fid
+                              checkStm (addScope env) stm fid
+                              return env
         SBlock stms     -> do checkStms (addScope env) stms fid
                               return env
         SIfElse e s1 s2 -> do checkExp env e Type_bool
-                              checkStm env s1 fid --fel
-                              checkStm env s2 fid
+                              checkStm (addScope env) s1 fid
+                              checkStm (addScope env) s2 fid
+                              return env
 
 checkStms :: Env -> [Stm] -> Id -> Err Env
 checkStms env [] _           = return env
