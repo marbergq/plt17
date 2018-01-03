@@ -24,8 +24,9 @@ type Sig = Map Id Def
 type Context = Map Id Value
 
 interpret :: Program -> IO ()
-interpret (PDefs defs) = do env <- return (addDefs starterEnv defs)
-                            (DFun _ f [] stms) <- return $ lookupFun env (Id "main")
+interpret (PDefs defs) = do (DFun _ f [] stms) <- lookupFun (addDefs starterEnv
+                                                                     defs)
+                                                            (Id "main")
                             execStms (addVar env (Id "ret_val'")) stms
                             return ()
 
@@ -66,7 +67,7 @@ execStm env s =
       SDecls t (id:ids)  -> do env' <- addVar env id
                                execStm env' (SDecls t ids)
       SInit _ id e       -> do (env', val) <- evalExp env e
-                               return $ addSetVar env' id val
+                               addSetVar env' id val
 {-
 Encountering SReturn changes the variable ret_val' from VUndef to the
 value of expression e.
@@ -106,7 +107,9 @@ evalExp env e =
       EFalse           -> return (env, VBool False)
       EInt i           -> return (env, VInt i)
       EDouble d        -> return (env, VDouble d)
-      EId id           -> return (env, lookupVar env id)
+      EId id           -> do val <- lookupVar env id
+                             return (env, val)
+
       EApp f xs@(x:xr) -> case f of
         Id "printInt"    -> do (env', val) <- evalExp env x
                                print val
@@ -118,14 +121,13 @@ evalExp env e =
                                return (env, VInt i)
         Id "readDouble"  -> do d <- readDouble
                                return (env, VDouble d)
-        _                -> do (DFun _ _ args stms) <- return (lookupFun env f)
-                               {- Create variable ret_val' (description above). /Johan-}
-                               (freshEnv, oldEnv') <- setArgs (addVar (enterScope env)
-                                                                      (Id "ret_val'")
-                                                              )
-                                                              env xs args
-                               (_, val) <- execStms freshEnv stms
-                               return (oldEnv', val) 
+        _                -> do (DFun _ _ args stms) <- lookupFun env f
+                               -- Create variable ret_val' (description above). /Johan
+                               freshEnv <- addVar (enterScope env) (Id "ret_val'")
+                               (freshEnv', oldEnv') <- setArgs freshEnv env xs args
+                               (_, val) <- execStms freshEnv' stms
+                               return (oldEnv', val)
+
       EPostIncr x      -> case lookupVar env x of
                              VInt i    -> return (setVar env x (VInt (i+1))   , VInt i)
                              VDouble d -> return (setVar env x (VDouble (d+1)), VDouble d)
@@ -177,7 +179,8 @@ evalExp env e =
                                else do (env'', v2) <- evalExp env' e2
                                        return (env'', v2)
       EAss id e        -> do (env', val) <- evalExp env e
-                             return ((setVar env' id val), val)
+                             env'' <- setVar env' id val
+                             return (env'', val)
 
 twiceEval :: Env -> Exp -> Exp -> IO (Value, Value, Env)
 twiceEval env e1 e2 = do (env', v1) <- evalExp env e1
