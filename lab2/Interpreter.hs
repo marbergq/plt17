@@ -29,16 +29,8 @@ type Sig = Map Id Def
 type Context = Map Id Value
 
 interpret :: Program -> IO ()
-interpret (PDefs defs) = --case (lookupFun (addDefs starterEnv defs) 
-                         --                (Id "main")) of 
-                         --       (DFun VVoid f [] stms) -> do 
-                         --                           execStms env stms
-                         --                           return ()
-                         --       (DFun _ _ _ _)      -> fail $ "Error in main function. Either a nonempty argument list or return type is not void. "
-                         --       error s                -> fail $ "Program missing main function" ++ s 
-                         do env <- return (addDefs starterEnv defs)
-                            (DFun t f _ stms) <- return
-                                                  (lookupFun env (Id "main"))
+interpret (PDefs defs) = do env <- return (addDefs starterEnv defs)
+                            (DFun _ f [] stms) <- return $ lookupFun env (Id "main")
                             execStms (addVar env (Id "ret_val'")) stms
                             return ()
 

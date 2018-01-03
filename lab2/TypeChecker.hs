@@ -16,15 +16,15 @@ type Context = Map Id Type
 typecheck :: Program -> Err ()
 typecheck (PDefs defs) =
     case addDefs starterSig defs of
-        Bad err -> fail err
-        Ok sigs  -> case Map.lookup (Id "main") sigs of
+        Bad err               -> fail err
+        Ok sigs               -> case Map.lookup (Id "main") sigs of
           Just ([], Type_int) -> checkDefs (sigs, [Map.empty]) defs
-          Just ([], t) -> fail ("main function is not of type int. "
-                                ++ "The type is: " ++ show t)
-          Just (_, Type_int) -> fail "main function must have zero agruments."
-          Just _ -> fail ("main function is not of type int " ++
-                          "and has arguments (no arguments are allowed).")
-          Nothing -> fail $ "main function not found."
+          Just ([], t)        -> fail ("main function is not of type int. "
+                                       ++ "The type is: " ++ show t)
+          Just (_, Type_int)  -> fail "main function must have zero agruments."
+          Just _              -> fail ("main function is not of type int " ++
+                                 "and has arguments (no arguments are allowed).")
+          Nothing             -> fail $ "main function not found."
 
 -- This function initializes the signature symbol table
 addDefs :: Sig -> [Def] -> Err Sig
